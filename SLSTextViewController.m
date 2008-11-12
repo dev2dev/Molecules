@@ -13,7 +13,7 @@
 
 @implementation SLSTextViewController
 
-#define kUITextViewCellRowHeight 390.0
+#define kUITextViewCellRowHeight 390.0f
 
 - (id)initWithTitle:(NSString *)newTitle andContent:(NSString *)newContent;
 {
@@ -35,7 +35,7 @@
 
 - (UITextView *)create_UITextView
 {
-	CGRect frame = CGRectMake(0.0, 0.0, 100.0, 390.0);
+	CGRect frame = CGRectMake(0.0f, 0.0f, 100.0f, 390.0f);
 	
 	UITextView *textView = [[[UITextView alloc] initWithFrame:frame] autorelease];
     textView.textColor = [UIColor blackColor];

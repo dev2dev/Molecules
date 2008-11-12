@@ -362,23 +362,32 @@ static NSDictionary *pdbResidueLookupTable;
 		
 	stillCountingAtomsInFirstStructure = YES;
 	numberOfAtoms = 0;
-	float tallyForCenterOfMassInX = 0.0, tallyForCenterOfMassInY = 0.0, tallyForCenterOfMassInZ = 0.0;
-	minimumXPosition = 1000.0;
-	maximumXPosition = 0.0;
-	minimumYPosition = 1000.0;
-	maximumYPosition = 0.0;
-	minimumZPosition = 1000.0;
-	maximumZPosition = 0.0;
+	float tallyForCenterOfMassInX = 0.0f, tallyForCenterOfMassInY = 0.0f, tallyForCenterOfMassInZ = 0.0f;
+	minimumXPosition = 1000.0f;
+	maximumXPosition = 0.0f;
+	minimumYPosition = 1000.0f;
+	maximumYPosition = 0.0f;
+	minimumZPosition = 1000.0f;
+	maximumZPosition = 0.0f;
 
 	// Find the file, Gunzip it
 	// TODO: Better error handling on file missing, etc.
 	NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
 	NSString *documentsDirectory = [paths objectAtIndex:0];
 	
-	NSData *gzippedPDBFile = [[NSData alloc] initWithContentsOfFile:[documentsDirectory stringByAppendingPathComponent:filename]];
+	NSData *pdbData;
+	
+	if ([[filename pathExtension] isEqualToString:@"pdb"]) // Uncompressed PDB file
+	{
+		pdbData = [[NSData alloc] initWithContentsOfFile:[documentsDirectory stringByAppendingPathComponent:filename]];
+	}
+	else // Deal with Gzipped files
+	{
+		NSData *gzippedPDBFile = [[NSData alloc] initWithContentsOfFile:[documentsDirectory stringByAppendingPathComponent:filename]];
+		pdbData = [[NSData alloc] initWithGzippedData:gzippedPDBFile];
+		[gzippedPDBFile release];
+	}
 
-	NSData *pdbData = [[NSData alloc] initWithGzippedData:gzippedPDBFile];
-	[gzippedPDBFile release];
 	if (pdbData == nil)
 		return NO;
 	
@@ -399,14 +408,31 @@ static NSDictionary *pdbResidueLookupTable;
 		currentRange = NSMakeRange(lineStart, contentsEnd - lineStart);
 		NSString *currentLine = [pdbFileContents substringWithRange:currentRange];
 		
-		NSString *lineIdentifier = [[currentLine substringWithRange:NSMakeRange(0, 6)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-		if (([lineIdentifier isEqualToString:@"ATOM"]) || ([lineIdentifier isEqualToString:@"HETATM"]))
+		if ([currentLine length] >= 6) // Make sure that we at least have a line identifier present, move on the the next line otherwise
 		{
-			// Process the bonds in the previous residue if starting a new residue
-			if (![lineIdentifier isEqualToString:@"HETATM"])
+			NSString *lineIdentifier = [[currentLine substringWithRange:NSMakeRange(0, 6)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+			if (([lineIdentifier isEqualToString:@"ATOM"]) || ([lineIdentifier isEqualToString:@"HETATM"]))
 			{
-				int residueNumber = [[currentLine substringWithRange:NSMakeRange(22, 5)] intValue];
-				if (residueNumber != currentResidueNumber)
+				// Process the bonds in the previous residue if starting a new residue
+				if (![lineIdentifier isEqualToString:@"HETATM"])
+				{
+					int residueNumber = [[currentLine substringWithRange:NSMakeRange(22, 5)] intValue];
+					if (residueNumber != currentResidueNumber)
+					{
+						if (residueAtoms != nil)
+						{
+							[self createBondsForPDBResidue:currentResidueType withAtomDictionary:residueAtoms structureNumber:currentStructureNumber];
+							[residueAtoms release];
+							residueAtoms = nil;
+							[currentResidueType release];
+							currentResidueType = nil;
+						}
+						residueAtoms = [[NSMutableDictionary alloc] init];
+						currentResidueNumber = residueNumber;
+						currentResidueType = [[[currentLine substringWithRange:NSMakeRange(17, 3)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+					}
+				}
+				else // Bond (-0.231000,89.028999,38.627998)
 				{
 					if (residueAtoms != nil)
 					{
@@ -414,15 +440,88 @@ static NSDictionary *pdbResidueLookupTable;
 						[residueAtoms release];
 						residueAtoms = nil;
 						[currentResidueType release];
-						currentResidueType = nil;
 					}
-					residueAtoms = [[NSMutableDictionary alloc] init];
-					currentResidueNumber = residueNumber;
-					currentResidueType = [[[currentLine substringWithRange:NSMakeRange(17, 3)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+					
+					self.previousTerminalAtomValue = nil;
+				}			
+				
+				SLS3DPoint atomCoordinate;
+				
+				atomCoordinate.x = [[currentLine substringWithRange:NSMakeRange(30, 8)] floatValue];
+				atomCoordinate.y = [[currentLine substringWithRange:NSMakeRange(38, 8)] floatValue];
+				atomCoordinate.z = [[currentLine substringWithRange:NSMakeRange(46, 8)] floatValue];
+				if (stillCountingAtomsInFirstStructure)
+				{
+					tallyForCenterOfMassInX += atomCoordinate.x;
+					if (minimumXPosition > atomCoordinate.x)
+						minimumXPosition = atomCoordinate.x;
+					if (maximumXPosition < atomCoordinate.x)
+						maximumXPosition = atomCoordinate.x;
+					
+					tallyForCenterOfMassInY += atomCoordinate.y;
+					if (minimumYPosition > atomCoordinate.y)
+						minimumYPosition = atomCoordinate.y;
+					if (maximumYPosition < atomCoordinate.y)
+						maximumYPosition = atomCoordinate.y;
+					
+					tallyForCenterOfMassInZ += atomCoordinate.z;
+					if (minimumZPosition > atomCoordinate.z)
+						minimumZPosition = atomCoordinate.z;
+					if (maximumZPosition < atomCoordinate.z)
+						maximumZPosition = atomCoordinate.z;
 				}
+				
+				unsigned int atomSerialNumber = [[currentLine substringWithRange:NSMakeRange(6, 5)] intValue];
+				[atomCoordinates setObject:[NSValue valueWithBytes:&atomCoordinate objCType:@encode(SLS3DPoint)] forKey:[NSNumber numberWithInt:atomSerialNumber]];
+				if (![lineIdentifier isEqualToString:@"HETATM"])
+				{
+					NSString *atomResidueIdentifier = [[currentLine substringWithRange:NSMakeRange(12, 4)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+					[residueAtoms setObject:[NSValue valueWithBytes:&atomCoordinate objCType:@encode(SLS3DPoint)] forKey:atomResidueIdentifier];
+				}
+				
+				NSString *atomElement;
+				if ([currentLine length] < 78)
+				{
+					atomElement = [currentLine substringWithRange:NSMakeRange(12, 2)];
+				}
+				else
+				{
+					atomElement = [currentLine substringWithRange:NSMakeRange(76, 2)];
+				}
+				SLSAtomType processedAtomType;
+				if ([atomElement isEqualToString:@" C"])
+					processedAtomType = CARBON;
+				else if ([atomElement isEqualToString:@" H"])
+					processedAtomType = HYDROGEN;
+				else if ([atomElement isEqualToString:@" O"])
+					processedAtomType = OXYGEN;
+				else if ([atomElement isEqualToString:@" N"])
+					processedAtomType = NITROGEN;
+				else if ([atomElement isEqualToString:@" S"])
+					processedAtomType = SULFUR;
+				else if ([atomElement isEqualToString:@" P"])
+					processedAtomType = PHOSPHOROUS;
+				else if ([atomElement isEqualToString:@"FE"])
+					processedAtomType = IRON;
+				else if ([atomElement isEqualToString:@"SI"])
+					processedAtomType = SILICON;
+				else 
+					processedAtomType = UNKNOWN;
+				
+				if ([lineIdentifier isEqualToString:@"HETATM"])
+				{
+					NSString *atomResidueIdentifier = [[currentLine substringWithRange:NSMakeRange(16, 4)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+					if ([atomResidueIdentifier isEqualToString:@"HOH"])
+						[self addAtomToDatabase:processedAtomType atPoint:atomCoordinate structureNumber:currentStructureNumber residueKey:WATER];
+					else
+						[self addAtomToDatabase:processedAtomType atPoint:atomCoordinate structureNumber:currentStructureNumber residueKey:UNKNOWNRESIDUE];
+				}
+				else
+					[self addAtomToDatabase:processedAtomType atPoint:atomCoordinate structureNumber:currentStructureNumber residueKey:SERINE];
 			}
-			else // Bond (-0.231000,89.028999,38.627998)
+			else if ([lineIdentifier isEqualToString:@"TER"])
 			{
+				// Catch the last residue of the chain
 				if (residueAtoms != nil)
 				{
 					[self createBondsForPDBResidue:currentResidueType withAtomDictionary:residueAtoms structureNumber:currentStructureNumber];
@@ -432,186 +531,120 @@ static NSDictionary *pdbResidueLookupTable;
 				}
 				
 				self.previousTerminalAtomValue = nil;
-			}			
-			
-			SLS3DPoint atomCoordinate;
-
-			atomCoordinate.x = [[currentLine substringWithRange:NSMakeRange(30, 8)] floatValue];
-			atomCoordinate.y = [[currentLine substringWithRange:NSMakeRange(38, 8)] floatValue];
-			atomCoordinate.z = [[currentLine substringWithRange:NSMakeRange(46, 8)] floatValue];
-			if (stillCountingAtomsInFirstStructure)
-			{
-				tallyForCenterOfMassInX += atomCoordinate.x;
-				if (minimumXPosition > atomCoordinate.x)
-					minimumXPosition = atomCoordinate.x;
-				if (maximumXPosition < atomCoordinate.x)
-					maximumXPosition = atomCoordinate.x;
-				
-				tallyForCenterOfMassInY += atomCoordinate.y;
-				if (minimumYPosition > atomCoordinate.y)
-					minimumYPosition = atomCoordinate.y;
-				if (maximumYPosition < atomCoordinate.y)
-					maximumYPosition = atomCoordinate.y;
-				
-				tallyForCenterOfMassInZ += atomCoordinate.z;
-				if (minimumZPosition > atomCoordinate.z)
-					minimumZPosition = atomCoordinate.z;
-				if (maximumZPosition < atomCoordinate.z)
-					maximumZPosition = atomCoordinate.z;
 			}
-						
-			unsigned int atomSerialNumber = [[currentLine substringWithRange:NSMakeRange(6, 5)] intValue];
-			[atomCoordinates setObject:[NSValue valueWithBytes:&atomCoordinate objCType:@encode(SLS3DPoint)] forKey:[NSNumber numberWithInt:atomSerialNumber]];
-			if (![lineIdentifier isEqualToString:@"HETATM"])
+			else if ([lineIdentifier isEqualToString:@"CONECT"])
 			{
-				NSString *atomResidueIdentifier = [[currentLine substringWithRange:NSMakeRange(12, 4)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-				[residueAtoms setObject:[NSValue valueWithBytes:&atomCoordinate objCType:@encode(SLS3DPoint)] forKey:atomResidueIdentifier];
-			}
-			
-			NSString *atomElement = [currentLine substringWithRange:NSMakeRange(76, 2)];
-			SLSAtomType processedAtomType;
-			if ([atomElement isEqualToString:@" C"])
-				processedAtomType = CARBON;
-			else if ([atomElement isEqualToString:@" H"])
-				processedAtomType = HYDROGEN;
-			else if ([atomElement isEqualToString:@" O"])
-				processedAtomType = OXYGEN;
-			else if ([atomElement isEqualToString:@" N"])
-				processedAtomType = NITROGEN;
-			else if ([atomElement isEqualToString:@" S"])
-				processedAtomType = SULFUR;
-			else if ([atomElement isEqualToString:@" P"])
-				processedAtomType = PHOSPHOROUS;
-			else if ([atomElement isEqualToString:@"FE"])
-				processedAtomType = IRON;
-			else 
-				processedAtomType = UNKNOWN;
-			
-			if ([lineIdentifier isEqualToString:@"HETATM"])
-			{
-				NSString *atomResidueIdentifier = [[currentLine substringWithRange:NSMakeRange(16, 4)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-				if ([atomResidueIdentifier isEqualToString:@"HOH"])
-					[self addAtomToDatabase:processedAtomType atPoint:atomCoordinate structureNumber:currentStructureNumber residueKey:WATER];
-				else
-					[self addAtomToDatabase:processedAtomType atPoint:atomCoordinate structureNumber:currentStructureNumber residueKey:UNKNOWNRESIDUE];
-			}
-			else
-				[self addAtomToDatabase:processedAtomType atPoint:atomCoordinate structureNumber:currentStructureNumber residueKey:SERINE];
-		}
-		else if ([lineIdentifier isEqualToString:@"TER"])
-		{
-			// Catch the last residue of the chain
-			if (residueAtoms != nil)
-			{
-				[self createBondsForPDBResidue:currentResidueType withAtomDictionary:residueAtoms structureNumber:currentStructureNumber];
-				[residueAtoms release];
-				residueAtoms = nil;
-				[currentResidueType release];
-			}
-			
-			self.previousTerminalAtomValue = nil;
-		}
-		else if ([lineIdentifier isEqualToString:@"CONECT"])
-		{
-			NSValue *startValue = nil;
-			int indexForFirstAtom = [[currentLine substringWithRange:NSMakeRange(6, 5)] intValue];
-			if ( (indexForFirstAtom <= [atomCoordinates count]) && (indexForFirstAtom > 0) )
-				startValue = [atomCoordinates objectForKey:[NSNumber numberWithInt:indexForFirstAtom]];
-			if (indexForFirstAtom > 0)
-			{
-				int indexForNextAtom = [[currentLine substringWithRange:NSMakeRange(11, 5)] intValue];
-				if ( (indexForNextAtom > 0) && (indexForNextAtom <= [atomCoordinates count]) )
+				NSValue *startValue = nil;
+				int indexForFirstAtom = [[currentLine substringWithRange:NSMakeRange(6, 5)] intValue];
+				if ( (indexForFirstAtom <= [atomCoordinates count]) && (indexForFirstAtom > 0) )
+					startValue = [atomCoordinates objectForKey:[NSNumber numberWithInt:indexForFirstAtom]];
+				if (indexForFirstAtom > 0)
 				{
-					[self addBondToDatabaseWithStartPoint:startValue endPoint:[atomCoordinates objectForKey:[NSNumber numberWithInt:indexForNextAtom]] bondType:SINGLEBOND structureNumber:currentStructureNumber residueKey:UNKNOWNRESIDUE];
-				}
-				
-				indexForNextAtom = [[currentLine substringWithRange:NSMakeRange(16, 5)] intValue];
-				if ( (indexForNextAtom > 0) && (indexForNextAtom <= [atomCoordinates count]) )
-				{
-					[self addBondToDatabaseWithStartPoint:startValue endPoint:[atomCoordinates objectForKey:[NSNumber numberWithInt:indexForNextAtom]] bondType:SINGLEBOND structureNumber:currentStructureNumber residueKey:UNKNOWNRESIDUE];
-				}
-				
-				indexForNextAtom = [[currentLine substringWithRange:NSMakeRange(21, 5)] intValue];
-				if ( (indexForNextAtom > 0) && (indexForNextAtom <= [atomCoordinates count]) )
-				{
-					[self addBondToDatabaseWithStartPoint:startValue endPoint:[atomCoordinates objectForKey:[NSNumber numberWithInt:indexForNextAtom]] bondType:SINGLEBOND structureNumber:currentStructureNumber residueKey:UNKNOWNRESIDUE];
+					int indexForNextAtom;
+					if ([currentLine length] > 15)
+					{
+						indexForNextAtom = [[currentLine substringWithRange:NSMakeRange(11, 5)] intValue];
+						if ( (indexForNextAtom > 0) && (indexForNextAtom <= [atomCoordinates count]) )
+						{
+							[self addBondToDatabaseWithStartPoint:startValue endPoint:[atomCoordinates objectForKey:[NSNumber numberWithInt:indexForNextAtom]] bondType:SINGLEBOND structureNumber:currentStructureNumber residueKey:UNKNOWNRESIDUE];
+						}
+					}
+					
+					if ([currentLine length] > 20)
+					{
+						indexForNextAtom = [[currentLine substringWithRange:NSMakeRange(16, 5)] intValue];
+						if ( (indexForNextAtom > 0) && (indexForNextAtom <= [atomCoordinates count]) )
+						{
+							[self addBondToDatabaseWithStartPoint:startValue endPoint:[atomCoordinates objectForKey:[NSNumber numberWithInt:indexForNextAtom]] bondType:SINGLEBOND structureNumber:currentStructureNumber residueKey:UNKNOWNRESIDUE];
+						}
+					}
+					
+					if ([currentLine length] > 25)
+					{
+						indexForNextAtom = [[currentLine substringWithRange:NSMakeRange(21, 5)] intValue];
+						if ( (indexForNextAtom > 0) && (indexForNextAtom <= [atomCoordinates count]) )
+						{
+							[self addBondToDatabaseWithStartPoint:startValue endPoint:[atomCoordinates objectForKey:[NSNumber numberWithInt:indexForNextAtom]] bondType:SINGLEBOND structureNumber:currentStructureNumber residueKey:UNKNOWNRESIDUE];
+						}
+					}
 				}
 			}
-		}
-		else if ([lineIdentifier isEqualToString:@"MODEL"])
-		{
-			currentStructureNumber = [[currentLine substringWithRange:NSMakeRange(12, 4)] intValue];
-			if (currentStructureNumber > numberOfStructures)
-				numberOfStructures = currentStructureNumber;
-		}
-		else if ([lineIdentifier isEqualToString:@"ENDMDL"])
-		{
-			stillCountingAtomsInFirstStructure = NO;
-		}
-		else if ([lineIdentifier isEqualToString:@"TITLE"])
-		{
-			if (title == nil)
-				title = [[[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
-			else
-				title = [[[title autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
-		}
-		else if ([lineIdentifier isEqualToString:@"COMPND"])
-		{
-			NSString *compoundIdentifier = [[currentLine substringWithRange:NSMakeRange(10, 10)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-			if ([compoundIdentifier isEqualToString:@"MOLECULE:"])
+			else if ([lineIdentifier isEqualToString:@"MODEL"])
 			{
-				if (compound == nil)
-					compound = [[[currentLine substringFromIndex:20] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+				currentStructureNumber = [[currentLine substringWithRange:NSMakeRange(12, 4)] intValue];
+				if (currentStructureNumber > numberOfStructures)
+					numberOfStructures = currentStructureNumber;
 			}
-		}
-		else if ([lineIdentifier isEqualToString:@"SOURCE"])
-		{
-			if (source == nil)
-				source = [[[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
-			else
-				source = [[[source autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
-		}
-		else if ([lineIdentifier isEqualToString:@"AUTHOR"])
-		{
-			if (author == nil)
-				author = [[[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
-			else
-				author = [[[author autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
-		}
-		else if ([lineIdentifier isEqualToString:@"JRNL"])
-		{
-			NSString *journalIdentifier = [[currentLine substringWithRange:NSMakeRange(12, 4)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-			if ([journalIdentifier isEqualToString:@"AUTH"])
+			else if ([lineIdentifier isEqualToString:@"ENDMDL"])
 			{
-				if (journalAuthor == nil)
-					journalAuthor = [[[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+				stillCountingAtomsInFirstStructure = NO;
+			}
+			else if ([lineIdentifier isEqualToString:@"TITLE"])
+			{
+				if (title == nil)
+					title = [[[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
 				else
-					journalAuthor = [[[journalAuthor autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+					title = [[[title autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
 			}
-			else if ([journalIdentifier isEqualToString:@"TITL"])
+			else if ([lineIdentifier isEqualToString:@"COMPND"])
 			{
-				if (journalTitle == nil)
-					journalTitle = [[[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
-				else
-					journalTitle = [[[journalTitle autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+				NSString *compoundIdentifier = [[currentLine substringWithRange:NSMakeRange(10, 10)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+				if ([compoundIdentifier isEqualToString:@"MOLECULE:"])
+				{
+					if (compound == nil)
+						compound = [[[currentLine substringFromIndex:20] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+				}
 			}
-			else if ( ([journalIdentifier isEqualToString:@"REF"]) || ([journalIdentifier isEqualToString:@"REFN"]) )
+			else if ([lineIdentifier isEqualToString:@"SOURCE"])
 			{
-				if (journalReference == nil)
-					journalReference = [[[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+				if (source == nil)
+					source = [[[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
 				else
-					journalReference = [[[journalReference autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+					source = [[[source autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
 			}
-		}		
-		else if ([lineIdentifier isEqualToString:@"SEQRES"])
-		{
-			if (sequence == nil)
-				sequence = [[[currentLine substringFromIndex:14] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
-			else
-				sequence = [[[sequence autorelease] stringByAppendingFormat:@"\n%@", [[currentLine substringFromIndex:14] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+			else if ([lineIdentifier isEqualToString:@"AUTHOR"])
+			{
+				if (author == nil)
+					author = [[[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+				else
+					author = [[[author autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:10] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+			}
+			else if ([lineIdentifier isEqualToString:@"JRNL"])
+			{
+				NSString *journalIdentifier = [[currentLine substringWithRange:NSMakeRange(12, 4)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+				if ([journalIdentifier isEqualToString:@"AUTH"])
+				{
+					if (journalAuthor == nil)
+						journalAuthor = [[[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+					else
+						journalAuthor = [[[journalAuthor autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+				}
+				else if ([journalIdentifier isEqualToString:@"TITL"])
+				{
+					if (journalTitle == nil)
+						journalTitle = [[[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+					else
+						journalTitle = [[[journalTitle autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+				}
+				else if ( ([journalIdentifier isEqualToString:@"REF"]) || ([journalIdentifier isEqualToString:@"REFN"]) )
+				{
+					if (journalReference == nil)
+						journalReference = [[[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+					else
+						journalReference = [[[journalReference autorelease] stringByAppendingFormat:@" %@", [[currentLine substringFromIndex:18] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+				}
+			}		
+			else if ([lineIdentifier isEqualToString:@"SEQRES"])
+			{
+				if (sequence == nil)
+					sequence = [[[currentLine substringFromIndex:14] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] retain];
+				else
+					sequence = [[[sequence autorelease] stringByAppendingFormat:@"\n%@", [[currentLine substringFromIndex:14] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]]] retain];
+			}
+			
+			// 	NSString *pdbCode, *title, *keywords, *journalReference, *sequence, *compound;			
 		}
 		
-		// 	NSString *pdbCode, *title, *keywords, *journalReference, *sequence, *compound;
 		[pool release];
 	}
 	[pdbFileContents release];
@@ -629,45 +662,77 @@ static NSDictionary *pdbResidueLookupTable;
 	
 	// Convert the strings to title case and strip off the ;s at the end of lines
 	NSCharacterSet *semicolonSet = [NSCharacterSet characterSetWithCharactersInString:@";"];
-	title = [[title autorelease] lowercaseString];
-	title = [title titlecaseString];
-	title = [title stringByTrimmingCharactersInSet:semicolonSet];
-	[title retain];
-	
-	compound = [[compound autorelease] lowercaseString];
-	compound = [compound titlecaseString];
-	compound = [compound stringByTrimmingCharactersInSet:semicolonSet];
-	[compound retain];
+
+	if (title != nil)
+	{
+		title = [[title autorelease] lowercaseString];
+		title = [title titlecaseString];
+		title = [title stringByTrimmingCharactersInSet:semicolonSet];
+		[title retain];
+	}
+	else
+	{
+		title = [filename copy];
+	}
+
+	if (compound != nil)
+	{
+		compound = [[compound autorelease] lowercaseString];
+		compound = [compound titlecaseString];
+		compound = [compound stringByTrimmingCharactersInSet:semicolonSet];
+		[compound retain];
+	}
+	else
+	{
+		compound = [filename copy];
+	}
+
 	[self writeMoleculeDataToDatabase];
 
-	source = [[source autorelease] lowercaseString];
-	source = [source titlecaseString];
-	source = [source stringByTrimmingCharactersInSet:semicolonSet];
-	[source retain];
-	[self addMetadataToDatabase:source type:MOLECULESOURCE];
+	if (source != nil)
+	{
+		source = [[source autorelease] lowercaseString];
+		source = [source titlecaseString];
+		source = [source stringByTrimmingCharactersInSet:semicolonSet];
+		[source retain];
+		[self addMetadataToDatabase:source type:MOLECULESOURCE];
+	}
 
-	author = [[author autorelease] capitalizedString];
-	author = [author stringByTrimmingCharactersInSet:semicolonSet];
-	[author retain];
-	[self addMetadataToDatabase:author type:MOLECULEAUTHOR];
+	if (author != nil)
+	{
+		author = [[author autorelease] capitalizedString];
+		author = [author stringByTrimmingCharactersInSet:semicolonSet];
+		[author retain];
+		[self addMetadataToDatabase:author type:MOLECULEAUTHOR];
+	}
 
-	journalAuthor = [[journalAuthor autorelease] capitalizedString];
-	journalAuthor = [journalAuthor stringByTrimmingCharactersInSet:semicolonSet];
-	[journalAuthor retain];
-	[self addMetadataToDatabase:journalAuthor type:JOURNALAUTHOR];
-
-	journalTitle = [[journalTitle autorelease] lowercaseString];
-	journalTitle = [journalTitle titlecaseString];
-	journalTitle = [journalTitle stringByTrimmingCharactersInSet:semicolonSet];
-	[journalTitle retain];
-	[self addMetadataToDatabase:journalTitle type:JOURNALTITLE];
-
-	journalReference = [[journalReference autorelease] capitalizedString];
-	journalReference = [journalReference stringByTrimmingCharactersInSet:semicolonSet];
-	[journalReference retain];
-	[self addMetadataToDatabase:journalReference type:JOURNALREFERENCE];
+ 	if (journalAuthor != nil)
+	{
+		journalAuthor = [[journalAuthor autorelease] capitalizedString];
+		journalAuthor = [journalAuthor stringByTrimmingCharactersInSet:semicolonSet];
+		[journalAuthor retain];
+		[self addMetadataToDatabase:journalAuthor type:JOURNALAUTHOR];
+	}
 	
-	[self addMetadataToDatabase:sequence type:MOLECULESEQUENCE];
+	if (journalTitle != nil)
+	{
+		journalTitle = [[journalTitle autorelease] lowercaseString];
+		journalTitle = [journalTitle titlecaseString];
+		journalTitle = [journalTitle stringByTrimmingCharactersInSet:semicolonSet];
+		[journalTitle retain];
+		[self addMetadataToDatabase:journalTitle type:JOURNALTITLE];
+	}
+
+	if (journalReference != nil)
+	{
+		journalReference = [[journalReference autorelease] capitalizedString];
+		journalReference = [journalReference stringByTrimmingCharactersInSet:semicolonSet];
+		[journalReference retain];
+		[self addMetadataToDatabase:journalReference type:JOURNALREFERENCE];
+	}
+
+	if (sequence != nil)
+		[self addMetadataToDatabase:sequence type:MOLECULESEQUENCE];
 			
 	[atomCoordinates release];
 	

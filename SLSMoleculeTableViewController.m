@@ -10,6 +10,7 @@
 
 #import "SLSMoleculeTableViewController.h"
 #import "SLSMoleculeRootViewController.h"
+#import "SLSMoleculeDataSourceViewController.h"
 #import "SLSMolecule.h"
 
 @implementation SLSMoleculeTableViewController
@@ -21,12 +22,12 @@
 {
 	if (self = [super initWithStyle:style]) 
 	{        
-        self.title = @"Molecules";
+        self.title = NSLocalizedStringFromTable(@"Molecules", @"Localized", nil);
 		selectedIndex = initialSelectedMoleculeIndex;
         
         self.navigationItem.rightBarButtonItem = self.editButtonItem;
 		
-        UIBarButtonItem *modelButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"3D Model" style:UIBarButtonItemStylePlain target:self action:@selector(switchBackToGLView)];
+        UIBarButtonItem *modelButtonItem = [[UIBarButtonItem alloc] initWithTitle:NSLocalizedStringFromTable(@"3D Model", @"Localized", nil) style:UIBarButtonItemStylePlain target:self action:@selector(switchBackToGLView)];
         self.navigationItem.leftBarButtonItem = modelButtonItem;
         [modelButtonItem release];
 
@@ -35,7 +36,6 @@
 	}
 	return self;
 }
-
 
 - (void)viewDidLoad 
 {
@@ -57,13 +57,12 @@
 
 - (IBAction)displayMoleculeDownloadView;
 {
-	SLSMoleculeSearchViewController *searchViewController = [[SLSMoleculeSearchViewController alloc] initWithStyle:UITableViewStylePlain];
-	searchViewController.delegate = self;
+	SLSMoleculeDataSourceViewController *dataSourceViewController = [[SLSMoleculeDataSourceViewController alloc] initWithStyle:UITableViewStylePlain];
+	dataSourceViewController.delegate = self;
 	
-	[self.navigationController pushViewController:searchViewController animated:YES];
-	[searchViewController release];
+	[self.navigationController pushViewController:dataSourceViewController animated:YES];
+	[dataSourceViewController release];
 }
-
 
 - (void)didReceiveMemoryWarning
 {
@@ -91,8 +90,8 @@
 		SLSMolecule *newMolecule = [[SLSMolecule alloc] initWithFilename:filename database:database];
 		if (newMolecule == nil)
 		{
-			UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Error in downloaded file" message:@"The molecule file is either corrupted or not of a supported format"
-														   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+			UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Error In Downloaded File", @"Localized", nil) message:NSLocalizedStringFromTable(@"Molecul Corrupted", @"Localized", nil)
+														   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 			[alert show];
 			[alert release];
 			
@@ -103,8 +102,8 @@
 			NSError *error = nil;
 			if (![[NSFileManager defaultManager] removeItemAtPath:[documentsDirectory stringByAppendingPathComponent:filename] error:&error])
 			{
-				UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Could not delete file" message:[error localizedDescription]
-															   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+				UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Delete File", @"Localized", nil) message:[error localizedDescription]
+															   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 				[alert show];
 				[alert release];					
 				return;
@@ -123,6 +122,17 @@
 }
 
 #pragma mark -
+#pragma mark MoleculeDownloadDelegate protocol method
+
+- (void)customURLSelectedForMoleculeDownload:(NSURL *)customURLForMoleculeDownload;
+{
+	NSURL *holderForURL = [customURLForMoleculeDownload copy];
+	[self.navigationController popToViewController:self animated:YES];
+	[self.delegate customURLSelectedForMoleculeDownload:holderForURL];
+	[holderForURL release];
+}
+
+#pragma mark -
 #pragma mark Table view data source delegate methods
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
@@ -131,27 +141,27 @@
 	NSInteger index = [indexPath row];
 	if (index == 0)
 	{
-		cell = [tableView dequeueReusableCellWithIdentifier:@"Download"];
+		cell = [tableView dequeueReusableCellWithIdentifier:NSLocalizedStringFromTable(@"Download", @"Localized", nil)];
 		if (cell == nil) 
 		{
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"Download"] autorelease];
+			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:NSLocalizedStringFromTable(@"Download", @"Localized", nil)] autorelease];
 			cell.textColor = [UIColor blackColor];
 		}		
 		
-		cell.text = @"Download new molecules";
+		cell.text = NSLocalizedStringFromTable(@"Download New Molecules", @"Localized", nil);
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 		cell.textColor = [UIColor blackColor];
 	}
 	else
 	{
-		cell = [tableView dequeueReusableCellWithIdentifier:@"Molecules"];
+		cell = [tableView dequeueReusableCellWithIdentifier:NSLocalizedStringFromTable(@"Molecules", @"Localized", nil)];
 		if (cell == nil) 
 		{
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"Molecules"] autorelease];
+			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:NSLocalizedStringFromTable(@"Molecules", @"Localized", nil)] autorelease];
 			cell.textColor = [UIColor blackColor];
 			cell.font = [UIFont boldSystemFontOfSize:12.0];
 			
-			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 230.0, 5.0, 220.0, 32.0);
+			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 230.0f, 5.0f, 220.0f, 32.0f);
 			UILabel *valueLabel = [[UILabel alloc] initWithFrame:frame];
 			[valueLabel setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
 			valueLabel.tag = 1;
@@ -169,7 +179,10 @@
 		else
 			cell.textColor = [UIColor blackColor];
 
-		cell.text = [[molecules objectAtIndex:(index-1)] filenameWithoutExtension];
+		NSString *labelForLeftOfName = [[molecules objectAtIndex:(index-1)] filenameWithoutExtension];
+		if ([labelForLeftOfName length] > 4)
+			labelForLeftOfName = [[labelForLeftOfName substringToIndex:3] stringByAppendingString:@".."];
+		cell.text = labelForLeftOfName;
 		
 		UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
 //		valueLabel.text = [NSString stringWithFormat:@"%@ (%@)", [[molecules objectAtIndex:(index-1)] compound], [[molecules objectAtIndex:(index-1)] title]];
@@ -265,5 +278,6 @@
 @synthesize delegate;
 @synthesize database;
 @synthesize molecules;
+@synthesize selectedIndex;
 
 @end

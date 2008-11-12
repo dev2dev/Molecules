@@ -44,10 +44,10 @@ NSString* kSLSCellTextView_ID = @"SLSCellTextViewID";
 	CGRect contentRect = [self.contentView bounds];
 	
 	// inset the text view within the cell
-	self.view.frame  = CGRectMake(	contentRect.origin.x + 8.0,
-									contentRect.origin.y + 8.0,
-									contentRect.size.width - 16.0,
-									contentRect.size.height - 16.0);
+	self.view.frame  = CGRectMake(	contentRect.origin.x + 8.0f,
+									contentRect.origin.y + 8.0f,
+									contentRect.size.width - 16.0f,
+									contentRect.size.height - 16.0f);
 }
 
 - (void)dealloc

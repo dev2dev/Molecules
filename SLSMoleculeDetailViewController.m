@@ -32,7 +32,7 @@
 		[newMolecule readMetadataFromDatabaseIfNecessary];
 		self.title = molecule.compound;
 
-		UILabel *label= [[UILabel alloc] initWithFrame:CGRectMake(25.0, 60.0, 320.0, 66.0)];
+		UILabel *label= [[UILabel alloc] initWithFrame:CGRectMake(25.0f, 60.0f, 320.0f, 66.0f)];
 		label.textColor = [UIColor blackColor];
 		label.font = [UIFont fontWithName:@"Helvetica" size:18.0];
 		label.backgroundColor = [UIColor groupTableViewBackgroundColor];	
@@ -96,17 +96,17 @@
     switch (section) 
 	{
         case DESCRIPTION_SECTION:
-            return @"Description";
+            return NSLocalizedStringFromTable(@"Description", @"Localized", nil);
         case STATISTICS_SECTION:
-            return @"Statistics";
+            return NSLocalizedStringFromTable(@"Statistics", @"Localized", nil);
         case JOURNAL_SECTION:
-            return @"Journal";
+            return NSLocalizedStringFromTable(@"Journal", @"Localized", nil);
         case SOURCE_SECTION:
-            return @"Source";
+            return NSLocalizedStringFromTable(@"Source", @"Localized", nil);
         case AUTHOR_SECTION:
-            return @"Author(s)";
+            return NSLocalizedStringFromTable(@"Author(s)", @"Localized", nil);
         case SEQUENCE_SECTION:
-            return @"Sequence";
+            return NSLocalizedStringFromTable(@"Sequence", @"Localized", nil);
 		default:
 			break;
     }
@@ -148,12 +148,12 @@
 		{
 			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:StatisticsCellIdentifier] autorelease];
 			
-			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 170.0, 5.0, 160.0, 32.0);
+			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 170.0f, 5.0f, 160.0f, 32.0f);
 			UILabel *valueLabel = [[UILabel alloc] initWithFrame:frame];
             [valueLabel setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
 			valueLabel.tag = 1;
 			valueLabel.textAlignment = UITextAlignmentRight;
-			valueLabel.textColor = [UIColor colorWithRed:50.0/255.0 green:79.0/255.0 blue:133.0/255.0 alpha:1.0];
+			valueLabel.textColor = [UIColor colorWithRed:50.0f/255.0f green:79.0f/255.0f blue:133.0f/255.0f alpha:1.0f];
             valueLabel.highlightedTextColor = [UIColor whiteColor];
 			[cell.contentView addSubview:valueLabel];
 			[valueLabel release];
@@ -163,25 +163,25 @@
 		{
 			case 0:
 			{
-				cell.text = @"File name";
+				cell.text = NSLocalizedStringFromTable(@"File Name", @"Localized", nil);
 				UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
 				valueLabel.text = molecule.filename;
 			}; break;
 			case 1:
 			{
-				cell.text = @"Number of atoms";
+				cell.text = NSLocalizedStringFromTable(@"Number Of Atoms", @"Localized", nil);
 				UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
 				valueLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfAtoms];
 			}; break;
 			case 2:
 			{
-				cell.text = @"Number of structures";
+				cell.text =NSLocalizedStringFromTable(@"Number Of Structures", @"Localized", nil);
 				UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
 				valueLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfStructures];
 			}; break;
 			case 3:
 			{
-				cell.text = @"Current structure";
+				cell.text = NSLocalizedStringFromTable(@"Current Structure", @"Localized", nil);
 				UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
 				valueLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfStructureBeingDisplayed];
 			}; break;
@@ -242,7 +242,7 @@
     	
 //	CGRect frame = CGRectMake(0.0, 0.0, 100.0, 100.0);
 
-	UILabel *label= [[UILabel alloc] initWithFrame:CGRectMake(0.0, 0.0, 100.0, 100.0)];
+	UILabel *label= [[UILabel alloc] initWithFrame:CGRectMake(0.0f, 0.0f, 100.0f, 100.0f)];
     label.textColor = [UIColor blackColor];
 //    textView.font = [UIFont fontWithName:@"Helvetica" size:18.0];
 //	textView.editable = NO;

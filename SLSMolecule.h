@@ -16,7 +16,7 @@
 
 
 // TODO: Convert enum to elemental number
-typedef enum { CARBON, HYDROGEN, OXYGEN, NITROGEN, SULFUR, PHOSPHOROUS, IRON, UNKNOWN} SLSAtomType;
+typedef enum { CARBON, HYDROGEN, OXYGEN, NITROGEN, SULFUR, PHOSPHOROUS, IRON, UNKNOWN, SILICON } SLSAtomType;
 typedef enum { BALLANDSTICK, SPACEFILLING, CYLINDRICAL, } SLSVisualizationType;
 typedef enum { UNKNOWNRESIDUE, DEOXYADENINE, DEOXYCYTOSINE, DEOXYGUANINE, DEOXYTHYMINE, ADENINE, CYTOSINE, GUANINE, URACIL, GLYCINE, ALANINE, VALINE, 
 				LEUCINE, ISOLEUCINE, SERINE, CYSTEINE, THREONINE, METHIONINE, PROLINE, PHENYLALANINE, TYROSINE, TRYPTOPHAN, HISTIDINE,
@@ -86,6 +86,8 @@ void normalize(GLfloat *v);
 - (id)initWithFilename:(NSString *)newFilename database:(sqlite3 *)newDatabase;
 - (id)initWithSQLStatement:(sqlite3_stmt *)moleculeRetrievalStatement database:(sqlite3 *)newDatabase;
 - (void)deleteMolecule;
+
++ (BOOL)isFiletypeSupportedForFile:(NSString *)filePath;
 
 // Molecule 3-D geometry generation
 + (void)setBondColor:(GLubyte *)bondColor forResidueType:(SLSResidueType)residueType;

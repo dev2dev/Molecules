@@ -11,6 +11,7 @@
 #import "SLSMoleculeAppDelegate.h"
 #import "SLSMoleculeRootViewController.h"
 #import "SLSMolecule.h"
+#import "NSData+Gzip.h"
 
 #import "VCTitleCase.h"
 
@@ -26,10 +27,21 @@
 
 - (void)applicationDidFinishLaunching:(UIApplication *)application 
 {	
+	isHandlingCustomURLMoleculeDownload = NO;
+	downloadedFileContents = nil;
+	initialDatabaseLoadLock = [[NSLock alloc] init];
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+
+
+	// This lets the little network activity indicator in the top status bar show when something is being sent or received
+	
 	[self performSelectorInBackground:@selector(loadInitialMoleculesFromDisk) withObject:nil];
 	
 	[window addSubview:[rootViewController view]];
 	[window makeKeyAndVisible];
+	
+//	UIApplication* app = [UIApplication sharedApplication];
+//	[self application:app handleOpenURL:[NSURL URLWithString:@"molecules://www.sunsetlakesoftware.com/sites/default/files/xenonPump.pdb"]];
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application 
@@ -39,6 +51,7 @@
 
 - (void)dealloc 
 {
+	[initialDatabaseLoadLock release];
 	[rootViewController release];
 	[molecules release];
 	[window release];
@@ -64,7 +77,7 @@
     NSString *defaultDBPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"molecules.sql"];
     success = [fileManager copyItemAtPath:defaultDBPath toPath:writableDBPath error:&error];
     if (!success) {
-        NSAssert1(0, @"Failed to create writable database file with message '%@'.", [error localizedDescription]);
+		NSAssert1(0,NSLocalizedStringFromTable(@"Error Creat DB", @"Localized", nil), [error localizedDescription]);
     }
 	return YES;
 }
@@ -85,7 +98,7 @@
 	{
         // Even though the open failed, call close to properly clean up resources.
         sqlite3_close(database);
-        NSAssert1(0, @"Failed to open database with message '%s'.", sqlite3_errmsg(database));
+		NSAssert1(0,NSLocalizedStringFromTable(@"Error Open DB", @"Localized", nil), sqlite3_errmsg(database));
         // Additional error handling, as appropriate...
     }
 	
@@ -99,16 +112,17 @@
     // Close the database.
     if (sqlite3_close(database) != SQLITE_OK) 
 	{
-        NSAssert1(0, @"Error: failed to close database with message '%s'.", sqlite3_errmsg(database));
+		NSAssert1(0,NSLocalizedStringFromTable(@"Error Close DB", @"Localized", nil), sqlite3_errmsg(database));
     }
 }
 
 - (void)loadInitialMoleculesFromDisk;
 {
+	[initialDatabaseLoadLock lock];
+
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	rootViewController.molecules = nil;
 
-	
 	if ([self createEditableCopyOfDatabaseIfNeeded])
 	{
 		// The database needed to be recreated, so scan and copy over the default files
@@ -163,8 +177,10 @@
 	
 	rootViewController.database = database;
 	rootViewController.molecules = molecules;
-	
-	[rootViewController loadInitialMolecule];
+	[initialDatabaseLoadLock unlock];
+
+	if (!isHandlingCustomURLMoleculeDownload)
+		[rootViewController loadInitialMolecule];
 	[pool release];
 }
 
@@ -235,7 +251,12 @@
 
 - (void)showStatusIndicator;
 {
-	[[NSNotificationCenter defaultCenter] postNotificationName:@"FileLoadingStarted" object:nil];
+	[[NSNotificationCenter defaultCenter] postNotificationName:@"FileLoadingStarted" object:NSLocalizedStringFromTable(@"Initializing Database", @"Localized", nil)];
+}
+
+- (void)showDownloadIndicator;
+{
+	[[NSNotificationCenter defaultCenter] postNotificationName:@"FileLoadingStarted" object:NSLocalizedStringFromTable(@"Downloading molecule...", @"Localized", nil)];
 }
 
 - (void)updateStatusIndicator;
@@ -253,11 +274,221 @@
 
 - (void)applicationWillResignActive:(UIApplication *)application 
 {
+	[[NSUserDefaults standardUserDefaults] synchronize];		
 }
-
 
 - (void)applicationDidBecomeActive:(UIApplication *)application 
 {
+}
+
+#pragma mark - 
+#pragma mark Custom URL handler
+
+- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url
+{
+	NSString *pathComponentForCustomURL = [[url host] stringByAppendingString:[url path]];
+	NSString *locationOfRemotePDBFile = [NSString stringWithFormat:@"http://%@", pathComponentForCustomURL];
+	nameOfDownloadedMolecule = [[pathComponentForCustomURL lastPathComponent] retain];
+
+	// Check to make sure that the file has not already been downloaded, if so, just switch to it
+	NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+	NSString *documentsDirectory = [paths objectAtIndex:0];	
+	if ([[NSFileManager defaultManager] fileExistsAtPath:[documentsDirectory stringByAppendingPathComponent:nameOfDownloadedMolecule]])
+	{
+		NSInteger indexForMoleculeMatchingThisName = 0, currentIndex = 0;
+		for (SLSMolecule *currentMolecule in molecules)
+		{
+			if ([[currentMolecule filename] isEqualToString:nameOfDownloadedMolecule])
+			{
+				indexForMoleculeMatchingThisName = currentIndex;
+				break;
+			}
+			currentIndex++;
+		}
+		
+		[rootViewController selectedMoleculeDidChange:indexForMoleculeMatchingThisName];
+		[rootViewController loadInitialMolecule];
+
+		return YES;
+	}
+		
+	isHandlingCustomURLMoleculeDownload = YES;
+	[NSThread sleepForTimeInterval:0.1]; // Wait for cancel action to take place
+
+	[rootViewController cancelMoleculeLoading];
+
+	[NSThread sleepForTimeInterval:0.1]; // Wait for cancel action to take place
+
+	downloadCancelled = NO;
+
+	// Start download of new molecule
+	[self showDownloadIndicator];
+	
+
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+	NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:locationOfRemotePDBFile]
+											  cachePolicy:NSURLRequestUseProtocolCachePolicy
+										  timeoutInterval:60.0f];
+	NSURLConnection *theConnection=[[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
+	if (theConnection) 
+	{
+		downloadedFileContents = [[NSMutableData data] retain];
+	} 
+	else 
+	{
+		// inform the user that the download could not be made
+		return NO;
+	}
+	return YES;
+}
+
+#pragma mark -
+#pragma mark Custom molecule download methods
+
+- (void)downloadCompleted;
+{
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+
+	[downloadedFileContents release];
+	downloadedFileContents = nil;
+	[self hideStatusIndicator];
+	[nameOfDownloadedMolecule release];
+	nameOfDownloadedMolecule = nil;
+}
+
+- (void)saveMoleculeWithData:(NSData *)moleculeData toFilename:(NSString *)filename;
+{
+	[initialDatabaseLoadLock lock];
+
+	if (moleculeData != nil)
+	{
+		// Add the new protein to the list by gunzipping the data and pulling out the title
+		NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+		NSString *documentsDirectory = [paths objectAtIndex:0];
+		
+		NSError *error = nil;
+		BOOL writeStatus;
+		if (isGzipCompressionUsedOnDownload)
+		{
+			writeStatus = [moleculeData writeToFile:[documentsDirectory stringByAppendingPathComponent:filename] options:NSAtomicWrite error:&error];
+//			writeStatus = [[moleculeData gzipDeflate] writeToFile:[documentsDirectory stringByAppendingPathComponent:filename] options:NSAtomicWrite error:&error];			
+//			NSLog(@"Decompressing");
+		}
+		else
+			writeStatus = [moleculeData writeToFile:[documentsDirectory stringByAppendingPathComponent:filename] options:NSAtomicWrite error:&error];
+
+		if (!writeStatus)
+		{
+			// TODO: Do some error handling here
+			return;
+		}
+		
+		SLSMolecule *newMolecule = [[SLSMolecule alloc] initWithFilename:filename database:database];
+		if (newMolecule == nil)
+		{
+			UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Error In Downloaded File", @"Localized", nil) message:NSLocalizedStringFromTable(@"Molecul Corrupted", @"Localized", nil)
+														   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
+			[alert show];
+			[alert release];
+			
+			// Delete the corrupted or sunsupported file
+			NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+			NSString *documentsDirectory = [paths objectAtIndex:0];
+			
+			NSError *error = nil;
+			if (![[NSFileManager defaultManager] removeItemAtPath:[documentsDirectory stringByAppendingPathComponent:filename] error:&error])
+			{
+				UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Delete File", @"Localized", nil) message:[error localizedDescription]
+															   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
+				[alert show];
+				[alert release];					
+				return;
+			}
+			
+		}
+		else
+		{			
+			[molecules addObject:newMolecule];
+			[newMolecule release];
+			
+			[rootViewController updateTableListOfMolecules];
+			[rootViewController selectedMoleculeDidChange:([molecules count] - 1)];
+			[rootViewController loadInitialMolecule];
+
+		}			
+	}	
+	[initialDatabaseLoadLock unlock];
+
+}
+
+#pragma mark -
+#pragma mark URL connection delegate methods
+
+- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error;
+{
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection Failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Error Connect PDB", @"Localized", nil)
+												   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
+	[alert show];
+	[alert release];
+	
+	[self downloadCompleted];
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data;
+{
+	// Concatenate the new data with the existing data to build up the downloaded file
+	// Update the status of the download
+	
+	if (downloadCancelled)
+	{
+		[connection cancel];
+		[self downloadCompleted];
+		downloadCancelled = NO;
+		return;
+	}
+	[downloadedFileContents appendData:data];
+}
+
+- (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response;
+{
+//	downloadFileSize = [response expectedContentLength];
+	NSString * contentEncoding = [[(NSHTTPURLResponse *)response allHeaderFields] valueForKey:@"Content-Encoding"];
+//	NSDictionary *allHeaders = [(NSHTTPURLResponse *)response allHeaderFields];
+	isGzipCompressionUsedOnDownload = [[contentEncoding lowercaseString] isEqualToString:@"gzip"];
+
+//	for (id key in allHeaders) 
+//	{
+//		NSLog(@"key: %@, value: %@", key, [allHeaders objectForKey:key]);
+//	}
+//	
+//	if (isGzipCompressionUsedOnDownload)
+//		NSLog(@"gzipping");
+	
+	// Stop the spinning wheel and start the status bar for download
+	if ([response textEncodingName] != nil)
+	{
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Find File", @"Localized", nil) message:[NSString stringWithFormat:NSLocalizedStringFromTable(@"No such file exists on the server: %@", @"Localized", nil), nameOfDownloadedMolecule]
+													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
+		[alert show];
+		[alert release];		
+		[connection cancel];
+		[self downloadCompleted];
+		return;
+	}
+}
+
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection;
+{	
+	
+//	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Download completed" message:@"Download completed"
+//												   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
+//	[alert show];
+//	[alert release];
+	
+	// Close off the file and write it to disk
+	[self saveMoleculeWithData:downloadedFileContents toFilename:nameOfDownloadedMolecule];
+	
+	[self downloadCompleted];	
 }
 
 @end

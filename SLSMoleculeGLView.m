@@ -79,13 +79,13 @@
 ////			NSLog(@"___________________________");			
 //		}
 
-		previousScale = 1.0;
-		instantObjectScale = 1.0;
-		instantXRotation = 1.0;
-		instantYRotation = 0.0;
-		instantXTranslation = 0.0;
-		instantYTranslation = 0.0;
-		instantZTranslation = 0.0;
+		previousScale = 1.0f;
+		instantObjectScale = 1.0f;
+		instantXRotation = 1.0f;
+		instantYRotation = 0.0f;
+		instantXTranslation = 0.0f;
+		instantYTranslation = 0.0f;
+		instantZTranslation = 0.0f;
 		twoFingersAreMoving = NO;
 		pinchGestureUnderway = NO;
 		
@@ -139,7 +139,7 @@
 {
 	if (moleculeToDisplay.isDoneRendering == NO)
 		return;
-	[self drawViewByRotatingAroundX:0.0 rotatingAroundY:0.0 scaling:1.0 translationInX:0 translationInY:0];
+	[self drawViewByRotatingAroundX:0.0f rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];
 }
 
 - (void)drawViewByRotatingAroundX:(float)xRotation rotatingAroundY:(float)yRotation scaling:(float)scaleFactor translationInX:(float)xTranslation translationInY:(float)yTranslation;
@@ -188,7 +188,7 @@
 	
 	// Translate the model by the accumulated amount
 	glGetFixedv(GL_MODELVIEW_MATRIX, currentModelViewMatrix);	
-	float currentScaleFactor = sqrt(pow((GLfloat)currentModelViewMatrix[0] / 65536.0f, 2.0) + pow((GLfloat)currentModelViewMatrix[1] / 65536.0f, 2.0) + pow((GLfloat)currentModelViewMatrix[2] / 65536.0f, 2.0));	
+	float currentScaleFactor = sqrt(pow((GLfloat)currentModelViewMatrix[0] / 65536.0f, 2.0f) + pow((GLfloat)currentModelViewMatrix[1] / 65536.0f, 2.0f) + pow((GLfloat)currentModelViewMatrix[2] / 65536.0f, 2.0f));	
 	
 	xTranslation = xTranslation / (currentScaleFactor * currentScaleFactor);
 	yTranslation = yTranslation / (currentScaleFactor * currentScaleFactor);
@@ -239,18 +239,18 @@
 {
 	[self drawView];
 #ifdef RUN_OPENGL_BENCHMARKS
-	NSLog(@"Triangles: %d", moleculeToDisplay.totalNumberOfTriangles);
-	NSLog(@"Vertices: %d", moleculeToDisplay.totalNumberOfVertices);
+	NSLog(NSLocalizedStringFromTable(@"Triangle", @"Localized", nil), moleculeToDisplay.totalNumberOfTriangles);
+	NSLog(NSLocalizedStringFromTable(@"Vertices", @"Localized", nil), moleculeToDisplay.totalNumberOfVertices);
 	CFAbsoluteTime elapsedTime, startTime = CFAbsoluteTimeGetCurrent();
 	unsigned int testCounter;
 	for (testCounter = 0; testCounter < 100; testCounter++)
 	{
 		// Do something		
-		[self drawViewByRotatingAroundX:1.0 rotatingAroundY:0.0 scaling:1.0 translationInX:0.0 translationInY:0.0];
+		[self drawViewByRotatingAroundX:1.0f rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];
 	}
 	elapsedTime = CFAbsoluteTimeGetCurrent() - startTime;
 	// ElapsedTime contains seconds (or fractions thereof as decimals)
-	NSLog(@"Elapsed time: %f", elapsedTime);
+	NSLog(NSLocalizedStringFromTable(@"Elapsed Time", @"Localized", nil), elapsedTime);
 #endif
 	
 }
@@ -318,8 +318,8 @@
 	if ([totalTouches count] > 1)
 	{
 		startingTouchDistance = [self distanceBetweenTouches:totalTouches];
-		previousScale = 1.0;
-		previousDirectionOfPanning = CGPointMake(0.0, 0.0);
+		previousScale = 1.0f;
+		previousDirectionOfPanning = CGPointMake(0.0f, 0.0f);
 	}
 	else
 	{
@@ -353,7 +353,7 @@
 			if (!pinchGestureUnderway)
 			{
 				twoFingersAreMoving = YES;
-				[self drawViewByRotatingAroundX:0.0 rotatingAroundY:0.0 scaling:1.0 translationInX:directionOfPanning.x translationInY:directionOfPanning.y];
+				[self drawViewByRotatingAroundX:0.0f rotatingAroundY:0.0f scaling:1.0f translationInX:directionOfPanning.x translationInY:directionOfPanning.y];
 				previousDirectionOfPanning = CGPointZero;
 			}
 		}
@@ -380,7 +380,7 @@
 	else // Single-touch rotation of object
 	{
 		CGPoint currentMovementPosition = [[touches anyObject] locationInView:self];
-		[self drawViewByRotatingAroundX:(currentMovementPosition.x - lastMovementPosition.x) rotatingAroundY:(currentMovementPosition.y - lastMovementPosition.y) scaling:1.0 translationInX:0.0 translationInY:0.0];
+		[self drawViewByRotatingAroundX:(currentMovementPosition.x - lastMovementPosition.x) rotatingAroundY:(currentMovementPosition.y - lastMovementPosition.y) scaling:1.0f translationInX:0.0f translationInY:0.0f];
 		lastMovementPosition = currentMovementPosition;
 	}
 	
@@ -402,28 +402,28 @@
 		{
 			case BALLANDSTICK:
 			{
-				buttonTitle1 = @"Spacefilling";
-				buttonTitle2 = @"Cylinders";
-				cancelButtonTitle = @"Ball-and-stick";
+				buttonTitle1 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
+				buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
+				cancelButtonTitle = NSLocalizedStringFromTable(@"Ball And Stick", @"Localized", nil);
 			}; break;
 			case SPACEFILLING:
 			{
-				buttonTitle1 = @"Ball-and-stick";
-				buttonTitle2 = @"Cylinders";
-				cancelButtonTitle = @"Spacefilling";
+				buttonTitle1 = NSLocalizedStringFromTable(@"Ball And Stick", @"Localized", nil);
+				buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
+				cancelButtonTitle = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
 			}; break;
 			case CYLINDRICAL:
 			{
-				buttonTitle1 = @"Ball-and-stick";
-				buttonTitle2 = @"Spacefilling";
-				cancelButtonTitle = @"Cylinders";
+				buttonTitle1 = NSLocalizedStringFromTable(@"Ball And Stick", @"Localized", nil);
+				buttonTitle2 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
+				cancelButtonTitle = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
 			}; break;
 		}
 
 		// If the rendering process has not finished, prevent you from changing the visualization mode
 		if (moleculeToDisplay.isDoneRendering == YES)
 		{
-			UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:@"Visualization mode"
+			UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:NSLocalizedStringFromTable(@"Visualization Mode", @"Localized", nil)
 																	 delegate:self cancelButtonTitle:cancelButtonTitle destructiveButtonTitle:nil
 															otherButtonTitles:buttonTitle1, buttonTitle2, nil];
 			actionSheet.actionSheetStyle = UIActionSheetStyleBlackTranslucent;
@@ -520,13 +520,13 @@
 	
 	// A two-finger movement should result in the direction of both touches being positive or negative at the same time in X and Y
 	if (!( (directionOfTouch1.x <= 0) && (directionOfTouch2.x <= 0) || (directionOfTouch1.x >= 0) && (directionOfTouch2.x >= 0) ))
-		return CGPointMake(0.0, 0.0);
+		return CGPointZero;
 	if (!( (directionOfTouch1.y <= 0) && (directionOfTouch2.y <= 0) || (directionOfTouch1.y >= 0) && (directionOfTouch2.y >= 0) ))
-		return CGPointMake(0.0, 0.0);
+		return CGPointZero;
 	
 	// The movement ranges are averaged out 
-	commonDirection.x = ((directionOfTouch1.x + directionOfTouch1.x) / 2.0) / 240.0;
-	commonDirection.y = ((directionOfTouch1.y + directionOfTouch1.y) / 2.0) / 240.0;
+	commonDirection.x = ((directionOfTouch1.x + directionOfTouch1.x) / 2.0f) / 240.0f;
+	commonDirection.y = ((directionOfTouch1.y + directionOfTouch1.y) / 2.0f) / 240.0f;
 	
 	return commonDirection;
 }
@@ -590,12 +590,12 @@
 	
 	isFirstDrawingOfMolecule = YES;
 	
-	instantObjectScale = 1.0;
-	instantXRotation = 1.0;
-	instantYRotation = 0.0;
-	instantXTranslation = 0.0;
-	instantYTranslation = 0.0;
-	instantZTranslation = 0.0;
+	instantObjectScale = 1.0f;
+	instantXRotation = 1.0f;
+	instantYRotation = 0.0f;
+	instantXTranslation = 0.0f;
+	instantYTranslation = 0.0f;
+	instantZTranslation = 0.0f;
 
 	[[NSUserDefaults standardUserDefaults] synchronize];
 }

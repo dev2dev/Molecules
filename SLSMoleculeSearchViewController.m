@@ -2,9 +2,11 @@
 //  SLSMoleculeSearchViewController.m
 //  Molecules
 //
-//  Created by Brad Larson on 7/22/2008.
-//  Copyright 2008 SonoPlot, Inc.. All rights reserved.
+//  The source code for Molecules is available under a BSD license.  See License.txt for details.
 //
+//  Created by Brad Larson on 7/22/2008.
+//
+//  This handles the keyword searching functionality of the Protein Data Bank
 
 #import "SLSMoleculeSearchViewController.h"
 #import "SLSMoleculeDownloadViewController.h"
@@ -25,12 +27,12 @@
 		self.view.frame = [[UIScreen mainScreen] applicationFrame];
 		self.view.autoresizesSubviews = YES;
 
-		UISearchBar *keywordSearchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0.0, 0.0, 320, 44)];
-		keywordSearchBar.placeholder = @"Search for molecules";
+		UISearchBar *keywordSearchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0.0f, 0.0f, 320.0f, 44.0f)];
+		keywordSearchBar.placeholder = NSLocalizedStringFromTable(@"Search For Molecules", @"Localized", nil);
 		keywordSearchBar.delegate = self;
 		keywordSearchBar.autocorrectionType = UITextAutocorrectionTypeNo;
 		
-		self.navigationItem.title = @"Protein Data Bank";
+		self.navigationItem.title = NSLocalizedStringFromTable(@"Protein Data Bank", @"Localized", nil);
 		self.navigationItem.rightBarButtonItem = nil;
 
 		self.tableView.tableHeaderView = keywordSearchBar;
@@ -107,7 +109,7 @@
 			
 			//		CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 250.0, 5.0, 240.0, 32.0);
 //			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 70.0, 14.0, 32.0, 32.0);
-			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 70.0, 20.0, 20.0, 20.0);
+			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 70.0f, 20.0f, 20.0f, 20.0f);
 			UIActivityIndicatorView *spinningIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
 			[spinningIndicator startAnimating];
 			spinningIndicator.frame = frame;
@@ -117,9 +119,9 @@
 			cell.font = [UIFont systemFontOfSize:16.0];
 		}
 		if (titleRetrievalConnection != nil)
-			cell.text = @"Retrieving titles...";
+			cell.text = NSLocalizedStringFromTable(@"Retrieving Titles", @"Localized", nil);
 		else
-			cell.text = @"Searching...";
+			cell.text = NSLocalizedStringFromTable(@"Searching", @"Localized", nil);
 	}
 	else if (searchResultTitles == nil)
 		cell = nil;
@@ -132,21 +134,21 @@
 			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"NoResults"] autorelease];
 			cell.textColor = [UIColor blackColor];
 			cell.font = [UIFont systemFontOfSize:16.0];
-			cell.text = @"No results";
+			cell.text = NSLocalizedStringFromTable(@"No Results", @"Localized", nil);
 			cell.accessoryType = UITableViewCellAccessoryNone;
 		}
 	}
 	else
 	{
-		cell = [tableView dequeueReusableCellWithIdentifier:@"Results"];
+		cell = [tableView dequeueReusableCellWithIdentifier:NSLocalizedStringFromTable(@"Results", @"Localized", nil)];
 		if (cell == nil) 
 		{		
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"Results"] autorelease];
+			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:NSLocalizedStringFromTable(@"Results", @"Localized", nil)] autorelease];
 			cell.textColor = [UIColor blackColor];
 			cell.font = [UIFont boldSystemFontOfSize:12.0];
 			
 			//		CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 250.0, 5.0, 240.0, 32.0);
-			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 250.0, 5.0, 240.0, 48.0);
+			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 250.0f, 5.0f, 240.0f, 48.0f);
 			UILabel *valueLabel = [[UILabel alloc] initWithFrame:frame];
 			[valueLabel setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
 			valueLabel.tag = 1;
@@ -376,6 +378,11 @@
 	titlesForPDBCodes = nil;
 	
 	[dictionaryToAssociatePDBCodesAndTitles release];
+	
+	if ([searchResultPDBCodes count] < [searchResultTitles count])
+		[searchResultTitles removeLastObject];
+	else if ([searchResultPDBCodes count] > [searchResultTitles count])
+		[searchResultPDBCodes removeLastObject];
 	dictionaryToAssociatePDBCodesAndTitles = [[NSMutableDictionary alloc] initWithObjects:searchResultPDBCodes forKeys:searchResultTitles];
 	[searchResultPDBCodes release];
 	searchResultPDBCodes = nil;
@@ -400,8 +407,8 @@
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error;
 {
-	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Connection failed" message:@"Could not connect to the Protein Data Bank"
-												   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection Failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Error Connect PDB", @"Localized", nil)
+												   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 	[alert show];
 	[alert release];
 	

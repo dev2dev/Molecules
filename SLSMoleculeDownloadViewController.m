@@ -61,11 +61,11 @@
 	pdbDownloadButton.contentVerticalAlignment = UIControlContentVerticalAlignmentCenter;
 	pdbDownloadButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
 	
-	[pdbDownloadButton setTitle:@"Download molecule" forState:UIControlStateNormal];	
+	[pdbDownloadButton setTitle:NSLocalizedStringFromTable(@"Download", @"Localized", nil) forState:UIControlStateNormal];	
 	[pdbDownloadButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
 	[pdbDownloadButton setFont:[UIFont boldSystemFontOfSize:14.0]];
 	
-	UIImage *newImage = [[UIImage imageNamed:@"greenButton.png"] stretchableImageWithLeftCapWidth:12.0 topCapHeight:0.0];
+	UIImage *newImage = [[UIImage imageNamed:@"greenButton.png"] stretchableImageWithLeftCapWidth:12.0f topCapHeight:0.0f];
 	[pdbDownloadButton setBackgroundImage:newImage forState:UIControlStateNormal];
 		
 	[pdbDownloadButton addTarget:self action:@selector(downloadNewProtein) forControlEvents:UIControlEventTouchDown];
@@ -103,7 +103,7 @@
 	[self.view addSubview:pdbInformationWebView];
 	pdbCodeSearchWebView.delegate = self;
 	
-	UIBarButtonItem *cancelButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"Done" style:UIBarButtonItemStylePlain target:self action:@selector(returnToDetailView)];
+	UIBarButtonItem *cancelButtonItem = [[UIBarButtonItem alloc] initWithTitle:NSLocalizedStringFromTable(@"Done", @"Localized", nil) style:UIBarButtonItemStylePlain target:self action:@selector(returnToDetailView)];
 	self.navigationItem.rightBarButtonItem = cancelButtonItem;
 	[cancelButtonItem release];
 	
@@ -141,7 +141,7 @@
 	[pdbDownloadButton setBackgroundImage:newImage forState:UIControlStateNormal];
 	[pdbDownloadButton removeTarget:self action:@selector(cancelDownload) forControlEvents:UIControlEventTouchDown];	
 	[pdbDownloadButton addTarget:self action:@selector(downloadNewProtein) forControlEvents:UIControlEventTouchDown];
-	[pdbDownloadButton setTitle:@"Download molecule" forState:UIControlStateNormal];	
+	[pdbDownloadButton setTitle:NSLocalizedStringFromTable(@"Download", @"Localized", nil) forState:UIControlStateNormal];	
 	
 	//[self.delegate moleculeDownloadController:self didAddMolecule:nil withCode:nil];
 }
@@ -158,8 +158,8 @@
 		
 	if ([[NSFileManager defaultManager] fileExistsAtPath:[documentsDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.pdb.gz", codeForCurrentlyDownloadingProtein]]])
 	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"File already exists" message:@"The molecule with this PDB code has already been downloaded"
-													   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"File Already Exists", @"Localized", nil) message:NSLocalizedStringFromTable(@"Molecule Already Downloaded", @"Localized", nil)
+													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];
 		return;
@@ -167,8 +167,8 @@
 	
 	if (![self downloadPDBFile])
 	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Connection failed" message:@"Could not connect to the Protein Data Bank"
-													   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection Failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Error Connect PDB", @"Localized", nil)
+													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];
 		return;
@@ -182,17 +182,19 @@
 	[pdbDownloadButton setBackgroundImage:newImage forState:UIControlStateNormal];
 	[pdbDownloadButton removeTarget:self action:@selector(downloadNewProtein) forControlEvents:UIControlEventTouchDown];	
 	[pdbDownloadButton addTarget:self action:@selector(cancelDownload) forControlEvents:UIControlEventTouchDown];
-	[pdbDownloadButton setTitle:@"Cancel download" forState:UIControlStateNormal];	
+	[pdbDownloadButton setTitle:NSLocalizedStringFromTable(@"Cancel Download", @"Localized", nil) forState:UIControlStateNormal];	
 	
-	downloadStatusBar.progress = 0.0;
+	downloadStatusBar.progress = 0.0f;
 	[self enableControls:NO];
 	[indefiniteDownloadIndicator startAnimating];
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
 	downloadStatusText.hidden = NO;
-	downloadStatusText.text = @"Connecting...";
+	downloadStatusText.text = NSLocalizedStringFromTable(@"Connecting", @"Localized", nil);
 		
 //	NSString *locationOfRemotePDBFile = [NSString stringWithFormat:@"http://www.sunsetlakesoftware.com/sites/default/files/%@.pdb.gz", pdbCode];
 	NSString *locationOfRemotePDBFile = [NSString stringWithFormat:@"http://www.rcsb.org/pdb/files/%@.pdb.gz", codeForCurrentlyDownloadingProtein];
 
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
 	NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:locationOfRemotePDBFile]
 											  cachePolicy:NSURLRequestUseProtocolCachePolicy
 										  timeoutInterval:60.0];
@@ -220,10 +222,13 @@
 
 - (void)downloadCompleted;
 {
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+
 	[downloadedFileContents release];
 	downloadedFileContents = nil;
 	downloadStatusBar.hidden = YES;
 	[indefiniteDownloadIndicator stopAnimating];
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
 	downloadStatusText.hidden = YES;
 
 	[self enableControls:YES];
@@ -236,8 +241,8 @@
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error;
 {
-	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Connection failed" message:@"Could not connect to the Protein Data Bank"
-												   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection Failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Error Connect PDB", @"Localized", nil)
+												   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 	[alert show];
 	[alert release];
 	
@@ -257,19 +262,19 @@
 		return;
 	}
 	[downloadedFileContents appendData:data];
-	downloadStatusBar.progress = (double)[downloadedFileContents length] / (double)downloadFileSize;
-	downloadStatusText.text = @"Downloading...";
+	downloadStatusBar.progress = (float)[downloadedFileContents length] / (float)downloadFileSize;
+	downloadStatusText.text = NSLocalizedStringFromTable(@"Downloading", @"Localized", nil);
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response;
 {
 	downloadFileSize = [response expectedContentLength];
-
+	
 	// Stop the spinning wheel and start the status bar for download
 	if ([response textEncodingName] != nil)
 	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Could not find file" message:[NSString stringWithFormat:@"No protein with the code %@ exists in the data bank", codeForCurrentlyDownloadingProtein]
-													   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Find File", @"Localized", nil) message:[NSString stringWithFormat:NSLocalizedStringFromTable(@"No Protein In Data Bank", @"Localized", nil), codeForCurrentlyDownloadingProtein]
+													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];		
 		[connection cancel];
@@ -281,15 +286,16 @@
 	{
 		downloadStatusBar.hidden = NO;
 		[indefiniteDownloadIndicator stopAnimating];
+		[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
 	}
-	downloadStatusText.text = @"Connected";
+	downloadStatusText.text = NSLocalizedStringFromTable(@"Connected", @"Localized", nil);
 
 	// TODO: Deal with a 404 error by checking filetype header
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection;
 {
-	downloadStatusText.text = @"Processing...";
+	downloadStatusText.text = NSLocalizedStringFromTable(@"Processing", @"Localized", nil);
 
 	// Close off the file and write it to disk
 	[self.delegate moleculeDownloadController:self didAddMolecule:downloadedFileContents withFilename:[NSString stringWithFormat:@"%@.pdb.gz", codeForCurrentlyDownloadingProtein]];
@@ -304,6 +310,7 @@
 {
 	webLoadingLabel.hidden = NO;
 	[webLoadingIndicator startAnimating];
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
 	//	progView.hidden = NO;
 }
 
@@ -311,12 +318,14 @@
 {
 	webLoadingLabel.hidden = YES;
 	[webLoadingIndicator stopAnimating];
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error
 {
 	// TODO: Present error dialog to user explaining what's going on
 	[webLoadingIndicator stopAnimating];
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];	
 }
 
 #pragma mark -

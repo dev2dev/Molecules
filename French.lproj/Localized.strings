@@ -1,0 +1,56 @@
+/* Internationalization by Olivier Kaluzny (olivier.kaluzny@he-arc.ch). 10/05/2008
+/* French */
+
+"Error Prepare Statement" = "Erreur: Impossible de préparer la déclaration avec le message '%s'.";
+"Error Dehydrate" = "Error: failed to dehydrate with message '%s'."; //TO translate in french
+"Error Insert Metadata" = "Erreur: Impossible d'insérer les meta-données avec le message '%s'.";
+"Error Insert Bond" = "Erreur: Impossible d'insérer le lien avec le message '%s'.";
+"Triangles" = "Triangles: %d";
+"Vertices" = "Sommets: %d";
+"Elapsed Time" = "Temps écoulé: %f";
+"Spacefilling" = "Modèle compact";
+"Cylinders" = "Modèle cylindre";
+"Ball And Stick" = "Modèle éclaté";
+"Visualization Mode" = "Mode de Visualisation";
+"Could Not Delete File" = "Impossible de supprimer le fichier";
+"No Protein In Data Bank" = "Aucune protéine avec le code %@ éxiste dans la banque de donnée";
+"Could Not Find File" = "Impossible de trouver le fichier";
+"Error Create DB" = "Impossible de créer une base de donnée modifiable avec le message '%@'.";
+"Error Open DB" = "Impossible d'ouvrir la base de donnée avec le message '%s'.";
+"Error Close DB" = "Erreur: Impossible de fermer la base de donnée avec le message '%s'.";
+"Initializing Database" = "Initialisation de la base de donnée...";
+"Rendering" = "Mise en forme...";
+"Download" = "Télécharger";
+"Download New Molecules" = "Télécharger des molécules";
+"Molecules" = "Molécules";
+"Search For Molecules" = "Chercher une molécule";
+"Protein Data Bank" = "Banque de donnée Protéine ";
+"Retrieving Titles" = "Réception des titres...";
+"Searching" = "Recherche en cours...";
+"No Results" = "Aucun résultat";
+"Results" = "Résultat";
+"Connection Failed" = "Connexion échouée";
+"Error Connect PDB" = "Impossible de se connecter à la Base de donnée des Protéines";
+"OK" = "OK";
+"Download molecule" = "Télécharger la molécule";
+"Done" = "Términer";
+"File Already Exists" = "Le fichier existe déja";
+"Molecule Already Downloaded" = "La molécule avec ce code PDB à déja été téléchargée.";
+"Cancel Download" = "Annuler le téléchargement";
+"Connecting" = "Connexion...";
+"Connected" = "Connecté";
+"Processing" = "En cours...";
+"Description" = "Déscription";
+"Statistics" = "Statistique";
+"Journal" = "Journal";
+"Source" = "Source";
+"Author(s)" = "Auteurs(s)";
+"Sequence" = "Séquence";
+"File Name" = "Nom du fichier";
+"Number Of Atoms" = "Nombre d'atome";
+"Number Of Structures" = "Nombre de structure";
+"Current Structure" = "Structure courante";
+"3D Model" = "Modèle 3D";
+"Error In Downloaded File" = "Erreur sur le fichier téléchargé";
+"Molecul Corrupted" = "Le fichier molécule est corrompue ou n'est pas un format supporté";
+

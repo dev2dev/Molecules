@@ -10,14 +10,22 @@
 
 #import <UIKit/UIKit.h>
 #import <sqlite3.h>
+#import "SLSMoleculeCustomDownloadViewController.h"
 
 @class SLSMoleculeRootViewController;
+
 
 @interface SLSMoleculeAppDelegate : NSObject <UIApplicationDelegate> 
 {
 	IBOutlet UIWindow *window;
 	IBOutlet SLSMoleculeRootViewController *rootViewController;
 
+	NSMutableData *downloadedFileContents;
+	NSString *nameOfDownloadedMolecule;
+	BOOL downloadCancelled;
+	NSLock *initialDatabaseLoadLock;
+	BOOL isGzipCompressionUsedOnDownload, isHandlingCustomURLMoleculeDownload;
+	
 	// SQLite database of all molecules
 	sqlite3 *database;
 	NSMutableArray *molecules;
@@ -36,8 +44,13 @@
 
 // Status update methods
 - (void)showStatusIndicator;
+- (void)showDownloadIndicator;
 - (void)updateStatusIndicator;
 - (void)hideStatusIndicator;
+
+// Custom molecule download methods
+- (void)downloadCompleted;
+- (void)saveMoleculeWithData:(NSData *)moleculeData toFilename:(NSString *)filename;
 
 @end
 

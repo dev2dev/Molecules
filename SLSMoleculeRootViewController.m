@@ -24,6 +24,7 @@
 
 - (void)dealloc 
 {
+	[tableViewController release];
 	[glViewController release];
 	[tableNavigationController release];
 	[super dealloc];
@@ -51,7 +52,7 @@
 	[self.view addSubview:glViewController.view];
 	[(SLSMoleculeGLView *)glViewController.view setDelegate:self];
 
-	[renderingProgressIndicator setProgress:0.0];
+	[renderingProgressIndicator setProgress:0.0f];
 }
 
 
@@ -60,12 +61,13 @@
 	bufferedMolecule = nil;
     tableNavigationController = [[UINavigationController alloc] init];
 	NSInteger indexOfInitialMolecule = [[NSUserDefaults standardUserDefaults] integerForKey:@"indexOfLastSelectedMolecule"];
-    SLSMoleculeTableViewController *tableViewController = [[SLSMoleculeTableViewController alloc] initWithStyle:UITableViewStylePlain initialSelectedMoleculeIndex:indexOfInitialMolecule];
+	if (indexOfInitialMolecule >= [molecules count])
+		indexOfInitialMolecule = 0;
+    tableViewController = [[SLSMoleculeTableViewController alloc] initWithStyle:UITableViewStylePlain initialSelectedMoleculeIndex:indexOfInitialMolecule];
 	tableViewController.database = database;
 	tableViewController.molecules = molecules;
     [tableNavigationController pushViewController:tableViewController animated:NO];
 	tableViewController.delegate = self;
-    [tableViewController release];
 
 	// Need to correct the view rectangle of the navigation view to correct for the status bar gap
 	UIView *tableView = tableNavigationController.view;
@@ -80,7 +82,7 @@
 
 - (void)showScanningIndicator:(NSNotification *)note;
 {
-	renderingActivityLabel.text = @"Initializing database...";
+	renderingActivityLabel.text = [note object];
 	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
 	[self.view insertSubview:scanningActivityIndicator aboveSubview:glView];
 	[self.view insertSubview:renderingActivityLabel aboveSubview:glView];
@@ -99,7 +101,7 @@
 
 - (void)showRenderingIndicator:(NSNotification *)note;
 {
-	renderingActivityLabel.text = @"Rendering...";
+	renderingActivityLabel.text = NSLocalizedStringFromTable(@"Rendering", @"Localized", nil);
 	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
 	[glView clearScreen];
 	[renderingProgressIndicator setProgress:0.0];
@@ -111,7 +113,7 @@
 {
 	float percentComplete = [(NSNumber *)[note object] floatValue];
 
-	if ((percentComplete - renderingProgressIndicator.progress) > 0.01)
+	if ((percentComplete - renderingProgressIndicator.progress) > 0.01f)
 	{
 		renderingProgressIndicator.progress = percentComplete;
 	}
@@ -142,14 +144,14 @@
 	
 	if ([glView superview] != nil) 
 	{
-		if (!glView.moleculeToDisplay.isDoneRendering)
-			glView.moleculeToDisplay.isRenderingCancelled = YES;
+		[self cancelMoleculeLoading];
 		[tableNavigationController viewWillAppear:YES];
 		[glViewController viewWillDisappear:YES];
 		[glView removeFromSuperview];
 		[self.view addSubview:tableView];
 		[glViewController viewDidDisappear:YES];
 		[tableNavigationController viewDidAppear:YES];
+		[[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleDefault];
 	} 
 	else 
 	{
@@ -167,6 +169,7 @@
 		}
 		else
 			previousMolecule.isBeingDisplayed = YES;
+		[[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleBlackOpaque];
 	}
 	[UIView commitAnimations];
 }
@@ -177,6 +180,8 @@
 - (void)loadInitialMolecule;
 {
 	NSInteger indexOfInitialMolecule = [[NSUserDefaults standardUserDefaults] integerForKey:@"indexOfLastSelectedMolecule"];
+	if (indexOfInitialMolecule >= [molecules count])
+		indexOfInitialMolecule = 0;
 	[glViewController selectedMoleculeDidChange:[molecules objectAtIndex:indexOfInitialMolecule]];
 }
 
@@ -186,6 +191,8 @@
 		newMoleculeIndex = 0;
 	[[NSUserDefaults standardUserDefaults] setInteger:newMoleculeIndex forKey:@"indexOfLastSelectedMolecule"];
 	[[NSUserDefaults standardUserDefaults] synchronize];
+	
+	tableViewController.selectedIndex = newMoleculeIndex;
 
 	// Defer sending the change message to the OpenGL view until the view is loaded, to make sure that rendering occurs only then
 	if ([molecules count] == 0)
@@ -203,13 +210,41 @@
 	return (interfaceOrientation == UIInterfaceOrientationPortrait);
 }
 
-
 - (void)didReceiveMemoryWarning 
 {
 	[super didReceiveMemoryWarning]; // Releases the view if it doesn't have a superview
 	// Release anything that's not essential, such as cached data
 }
 
+- (void)cancelMoleculeLoading;
+{
+	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
+
+	if (!glView.moleculeToDisplay.isDoneRendering)
+		glView.moleculeToDisplay.isRenderingCancelled = YES;
+}
+
+- (void)updateTableListOfMolecules;
+{
+	UITableView *tableView = (UITableView *)tableViewController.view;
+	[tableView reloadData];
+}
+
+#pragma mark -
+#pragma mark MoleculeDownloadDelegate protocol method
+
+- (void)customURLSelectedForMoleculeDownload:(NSURL *)customURLForMoleculeDownload;
+{
+	bufferedMolecule = nil;
+	[self toggleView];
+	//molecules://www.sunsetlakesoftware.com/sites/default/files/xenonPump.pdb
+	//html://www.sunsetlakesoftware.com/sites/default/files/xenonPump.pdb
+	
+	NSString *pathComponentForCustomURL = [[customURLForMoleculeDownload host] stringByAppendingString:[customURLForMoleculeDownload path]];
+	NSString *customMoleculeHandlingURL = [NSString stringWithFormat:@"molecules://%@", pathComponentForCustomURL];
+
+	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:customMoleculeHandlingURL]];
+}
 
 #pragma mark -
 #pragma mark Accessors

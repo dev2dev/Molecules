@@ -1,10 +1,10 @@
 //
 //  main.m
-//  PortaMol
+//  Molecules
 //
-//  Created by Brad Larson on 5/18/2008.
-//  Copyright SonoPlot, Inc. 2008. All rights reserved.
+//  The source code for Molecules is available under a BSD license.  See License.txt for details.
 //
+//  Created by Brad Larson on 6/26/2008.
 
 #import <UIKit/UIKit.h>
 

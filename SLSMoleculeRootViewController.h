@@ -10,15 +10,18 @@
 
 #import <UIKit/UIKit.h>
 #import <sqlite3.h>
+#import "SLSMoleculeCustomDownloadViewController.h"
 
 @class SLSMoleculeGLViewController;
 @class SLSMolecule;
+@class SLSMoleculeTableViewController;
 
-@interface SLSMoleculeRootViewController : UIViewController
+@interface SLSMoleculeRootViewController : UIViewController <MoleculeCustomDownloadDelegate>
 {
 	SLSMoleculeGLViewController *glViewController;
 	IBOutlet UINavigationController *tableNavigationController;
 	IBOutlet UIToolbar *moleculeDownloadToolbar;
+	SLSMoleculeTableViewController *tableViewController;
 	SLSMolecule *bufferedMolecule, *previousMolecule;
 	NSMutableArray *molecules;
 	
@@ -46,6 +49,8 @@
 // Passthroughs for managing molecules
 - (void)loadInitialMolecule;
 - (void)selectedMoleculeDidChange:(NSInteger)newMoleculeIndex;
+- (void)cancelMoleculeLoading;
+- (void)updateTableListOfMolecules;
 
 @end
 
