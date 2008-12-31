@@ -239,8 +239,8 @@
 {
 	[self drawView];
 #ifdef RUN_OPENGL_BENCHMARKS
-	NSLog(NSLocalizedStringFromTable(@"Triangle", @"Localized", nil), moleculeToDisplay.totalNumberOfTriangles);
-	NSLog(NSLocalizedStringFromTable(@"Vertices", @"Localized", nil), moleculeToDisplay.totalNumberOfVertices);
+	NSLog(NSLocalizedStringFromTable(@"Triangles: %d", @"Localized", nil), moleculeToDisplay.totalNumberOfTriangles);
+	NSLog(NSLocalizedStringFromTable(@"Vertices: %d", @"Localized", nil), moleculeToDisplay.totalNumberOfVertices);
 	CFAbsoluteTime elapsedTime, startTime = CFAbsoluteTimeGetCurrent();
 	unsigned int testCounter;
 	for (testCounter = 0; testCounter < 100; testCounter++)
@@ -250,7 +250,7 @@
 	}
 	elapsedTime = CFAbsoluteTimeGetCurrent() - startTime;
 	// ElapsedTime contains seconds (or fractions thereof as decimals)
-	NSLog(NSLocalizedStringFromTable(@"Elapsed Time", @"Localized", nil), elapsedTime);
+	NSLog(NSLocalizedStringFromTable(@"Elapsed time: %f", @"Localized", nil), elapsedTime);
 #endif
 	
 }
@@ -404,17 +404,17 @@
 			{
 				buttonTitle1 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
 				buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
-				cancelButtonTitle = NSLocalizedStringFromTable(@"Ball And Stick", @"Localized", nil);
+				cancelButtonTitle = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
 			}; break;
 			case SPACEFILLING:
 			{
-				buttonTitle1 = NSLocalizedStringFromTable(@"Ball And Stick", @"Localized", nil);
+				buttonTitle1 = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
 				buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
 				cancelButtonTitle = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
 			}; break;
 			case CYLINDRICAL:
 			{
-				buttonTitle1 = NSLocalizedStringFromTable(@"Ball And Stick", @"Localized", nil);
+				buttonTitle1 = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
 				buttonTitle2 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
 				cancelButtonTitle = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
 			}; break;
@@ -423,7 +423,7 @@
 		// If the rendering process has not finished, prevent you from changing the visualization mode
 		if (moleculeToDisplay.isDoneRendering == YES)
 		{
-			UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:NSLocalizedStringFromTable(@"Visualization Mode", @"Localized", nil)
+			UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:NSLocalizedStringFromTable(@"Visualization mode", @"Localized", nil)
 																	 delegate:self cancelButtonTitle:cancelButtonTitle destructiveButtonTitle:nil
 															otherButtonTitles:buttonTitle1, buttonTitle2, nil];
 			actionSheet.actionSheetStyle = UIActionSheetStyleBlackTranslucent;

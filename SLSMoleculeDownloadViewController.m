@@ -158,7 +158,7 @@
 		
 	if ([[NSFileManager defaultManager] fileExistsAtPath:[documentsDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.pdb.gz", codeForCurrentlyDownloadingProtein]]])
 	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"File Already Exists", @"Localized", nil) message:NSLocalizedStringFromTable(@"Molecule Already Downloaded", @"Localized", nil)
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"File already exists", @"Localized", nil) message:NSLocalizedStringFromTable(@"The molecule with this PDB code has already been downloaded", @"Localized", nil)
 													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];
@@ -167,7 +167,7 @@
 	
 	if (![self downloadPDBFile])
 	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection Failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Error Connect PDB", @"Localized", nil)
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Could not connect to the Protein Data Bank", @"Localized", nil)
 													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];
@@ -182,14 +182,14 @@
 	[pdbDownloadButton setBackgroundImage:newImage forState:UIControlStateNormal];
 	[pdbDownloadButton removeTarget:self action:@selector(downloadNewProtein) forControlEvents:UIControlEventTouchDown];	
 	[pdbDownloadButton addTarget:self action:@selector(cancelDownload) forControlEvents:UIControlEventTouchDown];
-	[pdbDownloadButton setTitle:NSLocalizedStringFromTable(@"Cancel Download", @"Localized", nil) forState:UIControlStateNormal];	
+	[pdbDownloadButton setTitle:NSLocalizedStringFromTable(@"Cancel download", @"Localized", nil) forState:UIControlStateNormal];	
 	
 	downloadStatusBar.progress = 0.0f;
 	[self enableControls:NO];
 	[indefiniteDownloadIndicator startAnimating];
 	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
 	downloadStatusText.hidden = NO;
-	downloadStatusText.text = NSLocalizedStringFromTable(@"Connecting", @"Localized", nil);
+	downloadStatusText.text = NSLocalizedStringFromTable(@"Connecting...", @"Localized", nil);
 		
 //	NSString *locationOfRemotePDBFile = [NSString stringWithFormat:@"http://www.sunsetlakesoftware.com/sites/default/files/%@.pdb.gz", pdbCode];
 	NSString *locationOfRemotePDBFile = [NSString stringWithFormat:@"http://www.rcsb.org/pdb/files/%@.pdb.gz", codeForCurrentlyDownloadingProtein];
@@ -241,7 +241,7 @@
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error;
 {
-	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection Failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Error Connect PDB", @"Localized", nil)
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Could not connect to the Protein Data Bank", @"Localized", nil)
 												   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 	[alert show];
 	[alert release];
@@ -273,7 +273,7 @@
 	// Stop the spinning wheel and start the status bar for download
 	if ([response textEncodingName] != nil)
 	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Find File", @"Localized", nil) message:[NSString stringWithFormat:NSLocalizedStringFromTable(@"No Protein In Data Bank", @"Localized", nil), codeForCurrentlyDownloadingProtein]
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could not find file", @"Localized", nil) message:[NSString stringWithFormat:NSLocalizedStringFromTable(@"No protein with the code %@ exists in the data bank", @"Localized", nil), codeForCurrentlyDownloadingProtein]
 													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];		
@@ -295,7 +295,7 @@
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection;
 {
-	downloadStatusText.text = NSLocalizedStringFromTable(@"Processing", @"Localized", nil);
+	downloadStatusText.text = NSLocalizedStringFromTable(@"Processing...", @"Localized", nil);
 
 	// Close off the file and write it to disk
 	[self.delegate moleculeDownloadController:self didAddMolecule:downloadedFileContents withFilename:[NSString stringWithFormat:@"%@.pdb.gz", codeForCurrentlyDownloadingProtein]];

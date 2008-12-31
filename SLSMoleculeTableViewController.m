@@ -90,7 +90,7 @@
 		SLSMolecule *newMolecule = [[SLSMolecule alloc] initWithFilename:filename database:database];
 		if (newMolecule == nil)
 		{
-			UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Error In Downloaded File", @"Localized", nil) message:NSLocalizedStringFromTable(@"Molecul Corrupted", @"Localized", nil)
+			UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Error in downloaded file", @"Localized", nil) message:NSLocalizedStringFromTable(@"The molecule file is either corrupted or not of a supported format", @"Localized", nil)
 														   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 			[alert show];
 			[alert release];
@@ -102,7 +102,7 @@
 			NSError *error = nil;
 			if (![[NSFileManager defaultManager] removeItemAtPath:[documentsDirectory stringByAppendingPathComponent:filename] error:&error])
 			{
-				UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Delete File", @"Localized", nil) message:[error localizedDescription]
+				UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could not delete file", @"Localized", nil) message:[error localizedDescription]
 															   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 				[alert show];
 				[alert release];					
@@ -141,23 +141,23 @@
 	NSInteger index = [indexPath row];
 	if (index == 0)
 	{
-		cell = [tableView dequeueReusableCellWithIdentifier:NSLocalizedStringFromTable(@"Download", @"Localized", nil)];
+		cell = [tableView dequeueReusableCellWithIdentifier:@"Download"];
 		if (cell == nil) 
 		{
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:NSLocalizedStringFromTable(@"Download", @"Localized", nil)] autorelease];
+			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"Download"] autorelease];
 			cell.textColor = [UIColor blackColor];
 		}		
 		
-		cell.text = NSLocalizedStringFromTable(@"Download New Molecules", @"Localized", nil);
+		cell.text = NSLocalizedStringFromTable(@"Download new molecules", @"Localized", nil);
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 		cell.textColor = [UIColor blackColor];
 	}
 	else
 	{
-		cell = [tableView dequeueReusableCellWithIdentifier:NSLocalizedStringFromTable(@"Molecules", @"Localized", nil)];
+		cell = [tableView dequeueReusableCellWithIdentifier:@"Molecules"];
 		if (cell == nil) 
 		{
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:NSLocalizedStringFromTable(@"Molecules", @"Localized", nil)] autorelease];
+			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"Molecules"] autorelease];
 			cell.textColor = [UIColor blackColor];
 			cell.font = [UIFont boldSystemFontOfSize:12.0];
 			

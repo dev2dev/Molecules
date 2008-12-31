@@ -148,7 +148,7 @@ void normalize(GLfloat *v)
         static char *sql = "INSERT INTO molecules (filename) VALUES(?)";
         if (sqlite3_prepare_v2(database, sql, -1, &insertMoleculeSQLStatement, NULL) != SQLITE_OK) 
 		{
-            NSAssert1(0,NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+            NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
         }
     }
 	// Bind the query variables.
@@ -239,8 +239,8 @@ void normalize(GLfloat *v)
 	NSError *error = nil;
 	if (![[NSFileManager defaultManager] removeItemAtPath:[documentsDirectory stringByAppendingPathComponent:filename] error:&error])
 	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Delete File", @"Localized", nil)message:[error localizedDescription]
-													   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could not delete file", @"Localized", nil) message:[error localizedDescription]
+													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];					
 		return;
@@ -798,7 +798,7 @@ void normalize(GLfloat *v)
 	{
 		const char *sql = "UPDATE molecules SET title=?, compound=?, format=?, atom_count=?, bond_count=?, structure_count=?, centerofmass_x=?, centerofmass_y=?, centerofmass_z=?, minimumposition_x=?, minimumposition_y=?, minimumposition_z=?, maximumposition_x=?, maximumposition_y=?, maximumposition_z=? WHERE id=?";
 		if (sqlite3_prepare_v2(database, sql, -1, &updateMoleculeSQLStatement, NULL) != SQLITE_OK) 
-			NSAssert1(0, NSLocalizedStringFromTable(@"Errore Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+			NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
 	}
 	// Bind the query variables.
 	sqlite3_bind_text(updateMoleculeSQLStatement, 1, [[title stringByReplacingOccurrencesOfString:@"'" withString:@"''"] UTF8String], -1, SQLITE_TRANSIENT);
@@ -824,7 +824,7 @@ void normalize(GLfloat *v)
 	sqlite3_reset(updateMoleculeSQLStatement);
 	// Handle errors.
 	if (success != SQLITE_DONE) 
-		NSAssert1(0, NSLocalizedStringFromTable(@"Error Dehydrate", @"Localized", nil), sqlite3_errmsg(database));	
+		NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to dehydrate with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));	
 }
 
 - (void)addMetadataToDatabase:(NSString *)metadata type:(SLSMetadataType)metadataType;
@@ -834,7 +834,7 @@ void normalize(GLfloat *v)
         static char *sql = "INSERT INTO metadata (molecule,type,value) VALUES(?,?,?)";
         if (sqlite3_prepare_v2(database, sql, -1, &insertMetadataSQLStatement, NULL) != SQLITE_OK) 
 		{
-            NSAssert1(0,NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+            NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
         }
     }
 	// Bind the query variables.
@@ -845,7 +845,7 @@ void normalize(GLfloat *v)
     // Because we want to reuse the statement, we "reset" it instead of "finalizing" it.
     sqlite3_reset(insertMetadataSQLStatement);
 	if (success != SQLITE_DONE) 
-		NSAssert1(0,NSLocalizedStringFromTable(@"Error Insert Metadata", @"Localized", nil), sqlite3_errmsg(database));		
+		NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to insert metadata with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));		
 }
 
 - (NSInteger)addAtomToDatabase:(SLSAtomType)atomType atPoint:(SLS3DPoint)newPoint structureNumber:(NSInteger)structureNumber residueKey:(SLSResidueType)residueKey;
@@ -855,7 +855,7 @@ void normalize(GLfloat *v)
         static char *sql = "INSERT INTO atoms (molecule,residue,structure,element,x,y,z) VALUES(?,?,?,?,?,?,?)";
         if (sqlite3_prepare_v2(database, sql, -1, &insertAtomSQLStatement, NULL) != SQLITE_OK) 
 		{
-            NSAssert1(0,NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+            NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
         }
     }
 	// Bind the query variables.
@@ -898,7 +898,7 @@ void normalize(GLfloat *v)
         static char *sql = "INSERT INTO bonds (molecule,residue,structure,bond_type,start_x,start_y,start_z,end_x,end_y,end_z) VALUES(?,?,?,?,?,?,?,?,?,?)";
         if (sqlite3_prepare_v2(database, sql, -1, &insertBondSQLStatement, NULL) != SQLITE_OK) 
 		{
-            NSAssert1(0, NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+            NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
         }
     }
 	// Bind the query variables.
@@ -917,7 +917,7 @@ void normalize(GLfloat *v)
     // Because we want to reuse the statement, we "reset" it instead of "finalizing" it.
     sqlite3_reset(insertBondSQLStatement);
 	if (success != SQLITE_DONE) 
-		NSAssert1(0, NSLocalizedStringFromTable(@"Error Insert Bond", @"Localized", nil), sqlite3_errmsg(database));		
+		NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to insert bond with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));		
 
 	if (stillCountingAtomsInFirstStructure)
 		numberOfBonds++;
@@ -934,7 +934,7 @@ void normalize(GLfloat *v)
 		const char *sql = "SELECT * FROM metadata WHERE molecule=?";
 		if (sqlite3_prepare_v2(database, sql, -1, &retrieveMetadataSQLStatement, NULL) != SQLITE_OK) 
 		{
-            NSAssert1(0,NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+            NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
         }
 	}
 	
@@ -999,7 +999,7 @@ void normalize(GLfloat *v)
 //		const char *sql = "SELECT * FROM atoms WHERE molecule=?";
 		if (sqlite3_prepare_v2(database, sql, -1, &retrieveAtomSQLStatement, NULL) != SQLITE_OK) 
 		{
-            NSAssert1(0, NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+            NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
         }
 	}
 	
@@ -1052,7 +1052,7 @@ void normalize(GLfloat *v)
 		const char *sql = "SELECT * FROM bonds WHERE molecule=? AND structure=?";
 		if (sqlite3_prepare_v2(database, sql, -1, &retrieveBondSQLStatement, NULL) != SQLITE_OK) 
 		{
-            NSAssert1(0, NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+            NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
         }
 	}
 	
@@ -1116,52 +1116,52 @@ void normalize(GLfloat *v)
 	{
 		const char *sql = "DELETE FROM molecules WHERE id=?";
 		if (sqlite3_prepare_v2(database, sql, -1, &deleteMoleculeSQLStatement, NULL) != SQLITE_OK) 
-			NSAssert1(0, NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+			NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
 	}
 	sqlite3_bind_int(deleteMoleculeSQLStatement, 1, databaseKey);
 	int success = sqlite3_step(deleteMoleculeSQLStatement);
 	sqlite3_reset(deleteMoleculeSQLStatement);
 	if (success != SQLITE_DONE) 
-		NSAssert1(0,NSLocalizedStringFromTable(@"Error Dehydrate", @"Localized", nil), sqlite3_errmsg(database));	
+		NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to dehydrate with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));	
 
 	// Delete the metadata associated with the molecule from the SQLite database	
 	if (deleteMetadataSQLStatement == nil) 
 	{
 		const char *sql = "DELETE FROM metadata WHERE molecule=?";
 		if (sqlite3_prepare_v2(database, sql, -1, &deleteMetadataSQLStatement, NULL) != SQLITE_OK) 
-			NSAssert1(0, NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+			NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
 	}
 	sqlite3_bind_int(deleteMetadataSQLStatement, 1, databaseKey);
 	success = sqlite3_step(deleteMetadataSQLStatement);
 	sqlite3_reset(deleteMetadataSQLStatement);
 	if (success != SQLITE_DONE) 
-		NSAssert1(0,NSLocalizedStringFromTable(@"Error Dehydrate", @"Localized", nil), sqlite3_errmsg(database));	
+		NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to dehydrate with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));	
 
 	// Delete the atoms associated with the molecule from the SQLite database	
 	if (deleteAtomSQLStatement == nil) 
 	{
 		const char *sql = "DELETE FROM atoms WHERE molecule=?";
 		if (sqlite3_prepare_v2(database, sql, -1, &deleteAtomSQLStatement, NULL) != SQLITE_OK) 
-			NSAssert1(0, NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+			NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
 	}
 	sqlite3_bind_int(deleteAtomSQLStatement, 1, databaseKey);
 	success = sqlite3_step(deleteAtomSQLStatement);
 	sqlite3_reset(deleteAtomSQLStatement);
 	if (success != SQLITE_DONE) 
-		NSAssert1(0,NSLocalizedStringFromTable(@"Error Dehydrate", @"Localized", nil), sqlite3_errmsg(database));	
+		NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to dehydrate with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));	
 	
 	// Delete the bonds associated with the molecule from the SQLite database	
 	if (deleteBondSQLStatement == nil) 
 	{
 		const char *sql = "DELETE FROM bonds WHERE molecule=?";
 		if (sqlite3_prepare_v2(database, sql, -1, &deleteBondSQLStatement, NULL) != SQLITE_OK) 
-			NSAssert1(0, NSLocalizedStringFromTable(@"Error Prepare Statement", @"Localized", nil), sqlite3_errmsg(database));
+			NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to prepare statement with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
 	}
 	sqlite3_bind_int(deleteBondSQLStatement, 1, databaseKey);
 	success = sqlite3_step(deleteBondSQLStatement);
 	sqlite3_reset(deleteBondSQLStatement);
 	if (success != SQLITE_DONE) 
-		NSAssert1(0, NSLocalizedStringFromTable(@"Error Dehydrate", @"Localized", nil), sqlite3_errmsg(database));		
+		NSAssert1(0, NSLocalizedStringFromTable(@"Error: failed to dehydrate with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));		
 	
 }
 

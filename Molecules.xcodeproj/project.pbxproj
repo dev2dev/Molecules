@@ -423,7 +423,7 @@
 				GCC_PREFIX_HEADER = Molecules_Prefix.pch;
 				INFOPLIST_FILE = English.lproj/Info.plist;
 				PRODUCT_NAME = Molecules;
-				"PROVISIONING_PROFILE[sdk=iphoneos*]" = DefaultProfileUuid;
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "E824C01E-3637-41DA-BE1A-394EFC13426C";
 			};
 			name = Release;
 		};
@@ -439,8 +439,8 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_LDFLAGS = "-lz";
 				PREBINDING = NO;
-				PROVISIONING_PROFILE = DefaultProfileUuid;
-				"PROVISIONING_PROFILE[sdk=iphoneos*]" = DefaultProfileUuid;
+				PROVISIONING_PROFILE = "9064BE37-C309-452C-B7C0-B01298BABFF1";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "9064BE37-C309-452C-B7C0-B01298BABFF1";
 				SDKROOT = iphoneos2.0;
 			};
 			name = Distribution;
@@ -455,8 +455,8 @@
 				GCC_PREFIX_HEADER = Molecules_Prefix.pch;
 				INFOPLIST_FILE = English.lproj/Info.plist;
 				PRODUCT_NAME = Molecules;
-				PROVISIONING_PROFILE = DefaultProfileUuid;
-				"PROVISIONING_PROFILE[sdk=iphoneos*]" = DefaultProfileUuid;
+				PROVISIONING_PROFILE = "9064BE37-C309-452C-B7C0-B01298BABFF1";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "9064BE37-C309-452C-B7C0-B01298BABFF1";
 			};
 			name = Distribution;
 		};
@@ -464,7 +464,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos2.0]" = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos2.0]" = "iPhone Developer: Brad Larson";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -482,7 +482,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos2.0]" = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos2.0]" = "iPhone Developer: Brad Larson";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_THUMB_SUPPORT = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -491,8 +491,8 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_LDFLAGS = "-lz";
 				PREBINDING = NO;
-				PROVISIONING_PROFILE = DefaultProfileUuid;
-				"PROVISIONING_PROFILE[sdk=iphoneos*]" = DefaultProfileUuid;
+				PROVISIONING_PROFILE = "E824C01E-3637-41DA-BE1A-394EFC13426C";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "E824C01E-3637-41DA-BE1A-394EFC13426C";
 				SDKROOT = iphoneos2.0;
 			};
 			name = Release;

@@ -77,7 +77,7 @@
     NSString *defaultDBPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"molecules.sql"];
     success = [fileManager copyItemAtPath:defaultDBPath toPath:writableDBPath error:&error];
     if (!success) {
-		NSAssert1(0,NSLocalizedStringFromTable(@"Error Creat DB", @"Localized", nil), [error localizedDescription]);
+		NSAssert1(0,NSLocalizedStringFromTable(@"Failed to create writable database file with message '%@'.", @"Localized", nil), [error localizedDescription]);
     }
 	return YES;
 }
@@ -98,7 +98,7 @@
 	{
         // Even though the open failed, call close to properly clean up resources.
         sqlite3_close(database);
-		NSAssert1(0,NSLocalizedStringFromTable(@"Error Open DB", @"Localized", nil), sqlite3_errmsg(database));
+		NSAssert1(0,NSLocalizedStringFromTable(@"Failed to open database with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
         // Additional error handling, as appropriate...
     }
 	
@@ -112,7 +112,7 @@
     // Close the database.
     if (sqlite3_close(database) != SQLITE_OK) 
 	{
-		NSAssert1(0,NSLocalizedStringFromTable(@"Error Close DB", @"Localized", nil), sqlite3_errmsg(database));
+		NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to close database with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
     }
 }
 
@@ -251,7 +251,7 @@
 
 - (void)showStatusIndicator;
 {
-	[[NSNotificationCenter defaultCenter] postNotificationName:@"FileLoadingStarted" object:NSLocalizedStringFromTable(@"Initializing Database", @"Localized", nil)];
+	[[NSNotificationCenter defaultCenter] postNotificationName:@"FileLoadingStarted" object:NSLocalizedStringFromTable(@"Initializing database...", @"Localized", nil)];
 }
 
 - (void)showDownloadIndicator;
@@ -386,7 +386,7 @@
 		SLSMolecule *newMolecule = [[SLSMolecule alloc] initWithFilename:filename database:database];
 		if (newMolecule == nil)
 		{
-			UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Error In Downloaded File", @"Localized", nil) message:NSLocalizedStringFromTable(@"Molecul Corrupted", @"Localized", nil)
+			UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Error in downloaded file", @"Localized", nil) message:NSLocalizedStringFromTable(@"The molecule file is either corrupted or not of a supported format", @"Localized", nil)
 														   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 			[alert show];
 			[alert release];
@@ -398,7 +398,7 @@
 			NSError *error = nil;
 			if (![[NSFileManager defaultManager] removeItemAtPath:[documentsDirectory stringByAppendingPathComponent:filename] error:&error])
 			{
-				UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Delete File", @"Localized", nil) message:[error localizedDescription]
+				UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could not delete file", @"Localized", nil) message:[error localizedDescription]
 															   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 				[alert show];
 				[alert release];					
@@ -426,7 +426,7 @@
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error;
 {
-	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection Failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Error Connect PDB", @"Localized", nil)
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Could not connect to the Protein Data Bank", @"Localized", nil)
 												   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 	[alert show];
 	[alert release];
@@ -467,7 +467,7 @@
 	// Stop the spinning wheel and start the status bar for download
 	if ([response textEncodingName] != nil)
 	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could Not Find File", @"Localized", nil) message:[NSString stringWithFormat:NSLocalizedStringFromTable(@"No such file exists on the server: %@", @"Localized", nil), nameOfDownloadedMolecule]
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Could not find file", @"Localized", nil) message:[NSString stringWithFormat:NSLocalizedStringFromTable(@"No such file exists on the server: %@", @"Localized", nil), nameOfDownloadedMolecule]
 													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];		

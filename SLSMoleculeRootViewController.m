@@ -101,7 +101,7 @@
 
 - (void)showRenderingIndicator:(NSNotification *)note;
 {
-	renderingActivityLabel.text = NSLocalizedStringFromTable(@"Rendering", @"Localized", nil);
+	renderingActivityLabel.text = NSLocalizedStringFromTable(@"Rendering...", @"Localized", nil);
 	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
 	[glView clearScreen];
 	[renderingProgressIndicator setProgress:0.0];

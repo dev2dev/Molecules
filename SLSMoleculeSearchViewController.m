@@ -28,7 +28,7 @@
 		self.view.autoresizesSubviews = YES;
 
 		UISearchBar *keywordSearchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0.0f, 0.0f, 320.0f, 44.0f)];
-		keywordSearchBar.placeholder = NSLocalizedStringFromTable(@"Search For Molecules", @"Localized", nil);
+		keywordSearchBar.placeholder = NSLocalizedStringFromTable(@"Search for molecules", @"Localized", nil);
 		keywordSearchBar.delegate = self;
 		keywordSearchBar.autocorrectionType = UITextAutocorrectionTypeNo;
 		
@@ -119,9 +119,9 @@
 			cell.font = [UIFont systemFontOfSize:16.0];
 		}
 		if (titleRetrievalConnection != nil)
-			cell.text = NSLocalizedStringFromTable(@"Retrieving Titles", @"Localized", nil);
+			cell.text = NSLocalizedStringFromTable(@"Retrieving titles...", @"Localized", nil);
 		else
-			cell.text = NSLocalizedStringFromTable(@"Searching", @"Localized", nil);
+			cell.text = NSLocalizedStringFromTable(@"Searching...", @"Localized", nil);
 	}
 	else if (searchResultTitles == nil)
 		cell = nil;
@@ -134,7 +134,7 @@
 			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"NoResults"] autorelease];
 			cell.textColor = [UIColor blackColor];
 			cell.font = [UIFont systemFontOfSize:16.0];
-			cell.text = NSLocalizedStringFromTable(@"No Results", @"Localized", nil);
+			cell.text = NSLocalizedStringFromTable(@"No results", @"Localized", nil);
 			cell.accessoryType = UITableViewCellAccessoryNone;
 		}
 	}
@@ -378,6 +378,17 @@
 	titlesForPDBCodes = nil;
 	
 	[dictionaryToAssociatePDBCodesAndTitles release];
+	if ([searchResultTitles count] < 1)
+	{
+		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Error in search query", @"Localized", nil) message:NSLocalizedStringFromTable(@"The RCSB Protein Data Bank is not responding to requests for molecule titles.  Only the PDB codes of the results will be displayed.", @"Localized", nil)
+													   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
+		[alert show];
+		[alert release];					
+		
+		
+		searchResultTitles = [searchResultPDBCodes copy];
+	}
+	
 	
 	if ([searchResultPDBCodes count] < [searchResultTitles count])
 		[searchResultTitles removeLastObject];
@@ -407,7 +418,7 @@
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error;
 {
-	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection Failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Error Connect PDB", @"Localized", nil)
+	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Connection failed", @"Localized", nil) message:NSLocalizedStringFromTable(@"Could not connect to the Protein Data Bank", @"Localized", nil)
 												   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 	[alert show];
 	[alert release];
