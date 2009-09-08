@@ -15,19 +15,19 @@
 @interface SLSMoleculeSearchViewController : UITableViewController <MoleculeDownloadDelegate, UISearchBarDelegate>
 {
 	id<MoleculeDownloadDelegate> delegate;
-	NSMutableArray *searchResultPDBCodes, *searchResultTitles;
-	NSMutableDictionary *dictionaryToAssociatePDBCodesAndTitles;
+	UISearchBar *keywordSearchBar;
+	NSMutableArray *searchResultTitles, *searchResultPDBCodes;
 	NSMutableData *downloadedFileContents;
-	NSXMLParser *searchResultsParser;
-	NSMutableString *currentXMLElementString;
-	NSURLConnection *pdbCodeRetrievalConnection, *titleRetrievalConnection;
+	NSURLConnection *searchResultRetrievalConnection, *nextResultsRetrievalConnection;
+	NSUInteger currentPageOfResults;
 	BOOL searchCancelled;
 }
 
 @property (readwrite, assign) id<MoleculeDownloadDelegate> delegate;
 
-- (void)processSearchResults;
-- (BOOL)finishParsingXML;
-- (void)finishLoadingTitles;
+// Performing search
+- (BOOL)performSearchWithKeyword:(NSString *)keyword;
+- (void)processSearchResultsAppendingNewData:(BOOL)appendData;
+- (BOOL)grabNextSetOfSearchResults;
 
 @end

@@ -12,11 +12,12 @@
 #import "SLSMoleculeDownloadViewController.h"
 #import "VCTitleCase.h"
 
-#define MAX_SEARCH_RESULT_BYTES 3700 // ~ 50 PDB codes
-#define MAX_SEARCH_RESULT_CODES 50   // ~ 50 PDB codes
+#define MAX_SEARCH_RESULT_CODES 25
 
 @implementation SLSMoleculeSearchViewController
 
+#pragma mark -
+#pragma mark Initialization and teardown
 
 - (id)initWithStyle:(UITableViewStyle)style 
 {
@@ -27,258 +28,63 @@
 		self.view.frame = [[UIScreen mainScreen] applicationFrame];
 		self.view.autoresizesSubviews = YES;
 
-		UISearchBar *keywordSearchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0.0f, 0.0f, 320.0f, 44.0f)];
+		keywordSearchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0.0f, 0.0f, 320.0f, 44.0f)];
 		keywordSearchBar.placeholder = NSLocalizedStringFromTable(@"Search for molecules", @"Localized", nil);
 		keywordSearchBar.delegate = self;
 		keywordSearchBar.autocorrectionType = UITextAutocorrectionTypeNo;
-		
+		[keywordSearchBar becomeFirstResponder];
+				
 		self.navigationItem.title = NSLocalizedStringFromTable(@"Protein Data Bank", @"Localized", nil);
 		self.navigationItem.rightBarButtonItem = nil;
 
 		self.tableView.tableHeaderView = keywordSearchBar;
-		[keywordSearchBar release];
 		
 		downloadedFileContents = nil;
-		searchResultsParser = nil;
-		currentXMLElementString = nil;
-		searchResultPDBCodes = nil;
 		searchResultTitles = nil;
-		dictionaryToAssociatePDBCodesAndTitles = nil;
-		pdbCodeRetrievalConnection = nil;
-		titleRetrievalConnection = nil;
+		searchResultPDBCodes = nil;
+		searchResultRetrievalConnection = nil;
+		nextResultsRetrievalConnection = nil;
 		searchCancelled = NO;
+		currentPageOfResults = 0;
 	}
 	return self;
 }
 
 - (void)dealloc 
 {
-	[pdbCodeRetrievalConnection cancel];
-	[pdbCodeRetrievalConnection release];
-	[titleRetrievalConnection cancel];
-	[titleRetrievalConnection release];
-
-	[searchResultPDBCodes release];
+	[keywordSearchBar release];
+	[searchResultRetrievalConnection release];
 	[searchResultTitles release];
-	[dictionaryToAssociatePDBCodesAndTitles release];
-	[searchResultsParser release];
+	[searchResultPDBCodes release];
 	[downloadedFileContents release];
-	[currentXMLElementString release];
 	[super dealloc];
 }
 
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView 
-{
-	return 1;
-}
-
-
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section 
-{
-	// Running a search, so display a status cell
-	if ( (titleRetrievalConnection != nil) || (pdbCodeRetrievalConnection != nil) )
-		return 1;
-	else if (searchResultTitles == nil)
-		return 0;
-	// No results to the last search, so display one cell explaining that
-	else if ([searchResultTitles count] == 0)
-		return 1;
-	else
-		return [searchResultTitles count];
-}
-
-
-- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
-{
-	return 60.0;
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
-{	
-	UITableViewCell *cell;
-	// Running a search, so display a status cell
-	if ( (titleRetrievalConnection != nil) || (pdbCodeRetrievalConnection != nil) )
-	{
-		cell = [tableView dequeueReusableCellWithIdentifier:@"SearchInProgress"];
-		if (cell == nil) 
-		{		
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"SearchInProgress"] autorelease];
-			cell.textColor = [UIColor blackColor];
-			cell.font = [UIFont boldSystemFontOfSize:12.0];
-			
-			//		CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 250.0, 5.0, 240.0, 32.0);
-//			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 70.0, 14.0, 32.0, 32.0);
-			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 70.0f, 20.0f, 20.0f, 20.0f);
-			UIActivityIndicatorView *spinningIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
-			[spinningIndicator startAnimating];
-			spinningIndicator.frame = frame;
-			[cell.contentView addSubview:spinningIndicator];
-			[spinningIndicator release];
-			cell.accessoryType = UITableViewCellAccessoryNone;
-			cell.font = [UIFont systemFontOfSize:16.0];
-		}
-		if (titleRetrievalConnection != nil)
-			cell.text = NSLocalizedStringFromTable(@"Retrieving titles...", @"Localized", nil);
-		else
-			cell.text = NSLocalizedStringFromTable(@"Searching...", @"Localized", nil);
-	}
-	else if (searchResultTitles == nil)
-		cell = nil;
-	// No results to the last search, so display one cell explaining that
-	else if ([searchResultTitles count] == 0)
-	{
-		cell = [tableView dequeueReusableCellWithIdentifier:@"NoResults"];
-		if (cell == nil) 
-		{		
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"NoResults"] autorelease];
-			cell.textColor = [UIColor blackColor];
-			cell.font = [UIFont systemFontOfSize:16.0];
-			cell.text = NSLocalizedStringFromTable(@"No results", @"Localized", nil);
-			cell.accessoryType = UITableViewCellAccessoryNone;
-		}
-	}
-	else
-	{
-		cell = [tableView dequeueReusableCellWithIdentifier:NSLocalizedStringFromTable(@"Results", @"Localized", nil)];
-		if (cell == nil) 
-		{		
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:NSLocalizedStringFromTable(@"Results", @"Localized", nil)] autorelease];
-			cell.textColor = [UIColor blackColor];
-			cell.font = [UIFont boldSystemFontOfSize:12.0];
-			
-			//		CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 250.0, 5.0, 240.0, 32.0);
-			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 250.0f, 5.0f, 240.0f, 48.0f);
-			UILabel *valueLabel = [[UILabel alloc] initWithFrame:frame];
-			[valueLabel setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-			valueLabel.tag = 1;
-			valueLabel.textAlignment = UITextAlignmentLeft;
-			valueLabel.textColor = [UIColor blackColor];
-			valueLabel.font = [UIFont systemFontOfSize:12.0];
-			valueLabel.numberOfLines = 3;
-			valueLabel.highlightedTextColor = [UIColor whiteColor];
-			[cell.contentView addSubview:valueLabel];
-			[valueLabel release];
-		}
-		if (searchResultTitles != nil)
-		{	
-			NSString *cellTitle = [searchResultTitles objectAtIndex:[indexPath row]];
-			cell.text = [dictionaryToAssociatePDBCodesAndTitles objectForKey:cellTitle];
-			
-			UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
-			valueLabel.text = cellTitle;
-			
-			cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-		}
-		else
-		{
-			cell.accessoryType = UITableViewCellAccessoryNone;
-			cell.text = @"";
-		}
-	}
-
-	return cell;
-}
-
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath 
-{
-	// Prevent any crashes by clicking on a non-normal cell
-	if ( (titleRetrievalConnection != nil) || (pdbCodeRetrievalConnection != nil) )
-		return;
-	else if (searchResultTitles == nil)
-		return;
-	// No results to the last search, so display one cell explaining that
-	else if ([searchResultTitles count] == 0)
-		return;	
-	
-	NSString *selectedTitle = [searchResultTitles objectAtIndex:[indexPath row]];
-	NSString *selectedPDBCode = [dictionaryToAssociatePDBCodesAndTitles objectForKey:selectedTitle];
-	
-	SLSMoleculeDownloadViewController *downloadViewController = [[SLSMoleculeDownloadViewController alloc] initWithPDBCode:selectedPDBCode andTitle:selectedTitle];
-	downloadViewController.delegate = self;
-	
-	[self.navigationController pushViewController:downloadViewController animated:YES];
-	[downloadViewController release];	
-}
-
-
-/*
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
-	
-	if (editingStyle == UITableViewCellEditingStyleDelete) {
-	}
-	if (editingStyle == UITableViewCellEditingStyleInsert) {
-	}
-}
-*/
-/*
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-	return YES;
-}
-*/
-/*
-- (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath {
-}
-*/
-/*
-- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath {
-	return YES;
-}
-*/
-
-
-- (void)viewDidLoad {
-	[super viewDidLoad];
-}
-
-
-- (void)viewWillAppear:(BOOL)animated {
-	[super viewWillAppear:animated];
-}
-
-- (void)viewDidAppear:(BOOL)animated {
-	[super viewDidAppear:animated];
-}
-
-- (void)viewWillDisappear:(BOOL)animated {
-}
-
-- (void)viewDidDisappear:(BOOL)animated {
-}
-
-- (void)didReceiveMemoryWarning {
-	[super didReceiveMemoryWarning];
-}
+#pragma mark -
+#pragma mark Performing search
 
 - (BOOL)performSearchWithKeyword:(NSString *)keyword;
 {
 	// Clear the old search results table
-	[searchResultPDBCodes release];
-	searchResultPDBCodes = nil;
 	[searchResultTitles release];
 	searchResultTitles = nil;
-
-		// TODO: Refresh the table
 	
-	NSString *webServicesURL = @"http://www.pdb.org/pdb/services/pdbws";
-	NSMutableURLRequest *theRequest=[NSMutableURLRequest requestWithURL:[NSURL URLWithString:webServicesURL]
-											  cachePolicy:NSURLRequestUseProtocolCachePolicy
-										  timeoutInterval:60.0];
-	theRequest.HTTPMethod = @"POST";
-	[theRequest setValue:@"text/xml" forHTTPHeaderField:@"Content-Type"];
-	[theRequest setValue:@"" forHTTPHeaderField:@"Soapaction"];
-	[theRequest setValue:@"www.pdb.org" forHTTPHeaderField:@"Host"];
-	NSString *pdbQueryBody = [NSString stringWithFormat:@"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<SOAP-ENV:Envelope\nxmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n	xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\nxmlns:SOAP-ENC=\"http://schemas.xmlsoap.org/soap/encoding/\"\nSOAP-ENV:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"\nxmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\">	<SOAP-ENV:Body>\n<m:keywordQuery xmlns:m=\"webservices.pdb.org\">\n<in0 xsi:type=\"xsd:string\">%@</in0>\n<in1 xsi:type=\"xsd:boolean\">false</in1>\n<in2 xsi:type=\"xsd:boolean\">false</in2>\n</m:keywordQuery>\n</SOAP-ENV:Body>\n</SOAP-ENV:Envelope>", keyword];
+	[searchResultPDBCodes release];
+	searchResultPDBCodes = nil;
 	
-	theRequest.HTTPBody = [pdbQueryBody dataUsingEncoding:NSUTF8StringEncoding];
-
-	NSString *bodyString = [[NSString alloc] initWithData:[theRequest HTTPBody] encoding:NSUTF8StringEncoding];
-	[bodyString release];
-		
+	NSString *pdbSearchURL = [[NSString alloc] initWithFormat:@"http://www.rcsb.org/pdb/search/navbarsearch.do?newSearch=yes&isAuthorSearch=no&radioset=All&inputQuickSearch=%@&outformat=text&resultsperpage=%d", keyword, MAX_SEARCH_RESULT_CODES];
+	
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+	
+	NSURLRequest *pdbSearchRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:pdbSearchURL]
+													cachePolicy:NSURLRequestUseProtocolCachePolicy
+												timeoutInterval:60.0];
+	[pdbSearchURL release];
+	searchResultRetrievalConnection = [[NSURLConnection alloc] initWithRequest:pdbSearchRequest delegate:self];
+	
 	downloadedFileContents = [[NSMutableData data] retain];
-	pdbCodeRetrievalConnection = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
-	if (pdbCodeRetrievalConnection) 
+	
+	if (searchResultRetrievalConnection) 
 	{
 		[self.tableView reloadData];
 	} 
@@ -289,118 +95,245 @@
 	return YES;
 }
 
-- (void)processSearchResults;
+- (void)processSearchResultsAppendingNewData:(BOOL)appendData;
 {
-	[pdbCodeRetrievalConnection release];
-	pdbCodeRetrievalConnection = nil;
+	if (!appendData)
+	{
+		[searchResultRetrievalConnection release];
+		searchResultRetrievalConnection = nil;
 
-	[searchResultPDBCodes release];
-	searchResultPDBCodes = nil;
-	searchResultPDBCodes = [[NSMutableArray alloc] init];
+		searchResultTitles = [[NSMutableArray alloc] init];
+		searchResultPDBCodes = [[NSMutableArray alloc] init];
+	}
+	else
+	{
+		[nextResultsRetrievalConnection release];
+		nextResultsRetrievalConnection = nil;
+	}	
 
-	[searchResultsParser release];
-	
-	[currentXMLElementString release];
-    currentXMLElementString = nil;
-
-	searchResultsParser = [[NSXMLParser alloc] initWithData:downloadedFileContents];
+	NSString *titlesAndPDBCodeString = [[NSString alloc] initWithData:downloadedFileContents encoding:NSASCIIStringEncoding];
 	[downloadedFileContents release];
 	downloadedFileContents = nil;
-    searchResultsParser.delegate = self;
-    [searchResultsParser setShouldResolveExternalEntities:YES];
-    [searchResultsParser parse]; 	
+
+	if ([[[titlesAndPDBCodeString substringToIndex:5] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] isEqualToString:@""])
+	{
+		// No results match this query
+		currentPageOfResults = 1;
+		[titlesAndPDBCodeString release];
+		[self.tableView reloadData];		
+		return;
+	}
+
+	NSUInteger length = [titlesAndPDBCodeString length];
+	NSUInteger lineStart = 0, lineEnd = 0, contentsEnd = 0;
+	NSRange currentRange;
+	
+	while (lineEnd < length) 
+	{
+//		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+		[titlesAndPDBCodeString getParagraphStart:&lineStart end:&lineEnd contentsEnd:&contentsEnd forRange:NSMakeRange(lineEnd, 0)];
+		currentRange = NSMakeRange(lineStart, contentsEnd - lineStart);
+		NSString *currentLine = [titlesAndPDBCodeString substringWithRange:currentRange];
+		
+		
+		NSArray *lineComponents = [currentLine componentsSeparatedByString:@"\t"];
+		if ([lineComponents count] > 1)
+		{
+			NSString *pdbCode = [lineComponents objectAtIndex:0];
+			NSString *moleculeTitle = [lineComponents objectAtIndex:1];
+			if ((pdbCode != nil) && (moleculeTitle != nil))
+			{
+				[searchResultTitles addObject:moleculeTitle];
+				[searchResultPDBCodes addObject:pdbCode];
+			}
+		}
+		
+//		[pool release];
+	}		
+	
+	currentPageOfResults = 1;
+	[titlesAndPDBCodeString release];
+	[self.tableView reloadData];
 }
 
-- (BOOL)finishParsingXML;
+- (BOOL)grabNextSetOfSearchResults;
 {
-	// Trim back the results to the max allowed
-	if ([searchResultPDBCodes count] > MAX_SEARCH_RESULT_CODES)
-		[searchResultPDBCodes removeObjectsInRange:NSMakeRange(50, ([searchResultPDBCodes count] - 50))];
+	currentPageOfResults++;
+	NSString *nextResultsURL = [[NSString alloc] initWithFormat:@"http://www.rcsb.org/pdb/results/results.do?outformat=text&gotopage=%d", currentPageOfResults];
 	
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
 	
-	// Initiate URL query to get titles
-	NSMutableString *urlForPDBTitleRequest = [NSMutableString stringWithString:@"http://www.rcsb.org/pdb/results/titles.jsp?structureIdList="];
-	for (NSString *currentPDBCode in searchResultPDBCodes)
-	{
-		[urlForPDBTitleRequest appendString:@","];
-		[urlForPDBTitleRequest appendString:currentPDBCode];
-	}
+	NSURLRequest *pdbSearchRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:nextResultsURL]
+													cachePolicy:NSURLRequestUseProtocolCachePolicy
+												timeoutInterval:60.0];
+	[nextResultsURL release];
+	nextResultsRetrievalConnection = [[NSURLConnection alloc] initWithRequest:pdbSearchRequest delegate:self];
 	
-	NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:urlForPDBTitleRequest]
-											  cachePolicy:NSURLRequestUseProtocolCachePolicy
-										  timeoutInterval:60.0];
-
 	downloadedFileContents = [[NSMutableData data] retain];
-	titleRetrievalConnection = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
-	[self.tableView reloadData];
-	if (titleRetrievalConnection) 
+	
+	if (nextResultsRetrievalConnection) 
 	{
+		[self.tableView reloadData];
 	} 
 	else 
 	{
 		return NO;
 	}
 	return YES;
+	
 }
 
-- (void)finishLoadingTitles;
+#pragma mark -
+#pragma mark UITableViewController methods
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView 
 {
-	NSCharacterSet *semicolonSet = [NSCharacterSet characterSetWithCharactersInString:@";"];
+	return 1;
+}
 
-	NSString *titlesForPDBCodes = [[NSString alloc] initWithData:downloadedFileContents encoding:NSASCIIStringEncoding];
-	[downloadedFileContents release];
-	downloadedFileContents = nil;
-	
-	searchResultTitles = [[NSMutableArray alloc] init];
-	
-	NSUInteger length = [titlesForPDBCodes length];
-	NSUInteger lineStart = 0, lineEnd = 0, contentsEnd = 0;
-	NSRange currentRange;
-	
-	while (lineEnd < length) 
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section 
+{
+	// Running a search, so display a status cell
+	if (searchResultRetrievalConnection != nil)
+		return 1;
+	else if (searchResultTitles == nil)
+		return 0;
+	// No results to the last search, so display one cell explaining that
+	else if ([searchResultTitles count] == 0)
+		return 1;
+	else
 	{
-		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
-		[titlesForPDBCodes getParagraphStart:&lineStart end:&lineEnd contentsEnd:&contentsEnd forRange:NSMakeRange(lineEnd, 0)];
-		currentRange = NSMakeRange(lineStart, contentsEnd - lineStart);
-		NSString *currentLine = [titlesForPDBCodes substringWithRange:currentRange];
-		
-		//NSString *currentPDBCode = [[currentLine substringWithRange:NSMakeRange(0, 4)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-		NSString *currentTitle = [[currentLine substringFromIndex:4] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-		currentTitle = [currentTitle lowercaseString];
-		currentTitle = [currentTitle titlecaseString];
-		currentTitle = [currentTitle stringByTrimmingCharactersInSet:semicolonSet];
-		
-		[searchResultTitles addObject:currentTitle];
-		[pool release];
-	}		
-	[titlesForPDBCodes release];
-	titlesForPDBCodes = nil;
-	
-	[dictionaryToAssociatePDBCodesAndTitles release];
-	if ([searchResultTitles count] < 1)
-	{
-		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"Error in search query", @"Localized", nil) message:NSLocalizedStringFromTable(@"The RCSB Protein Data Bank is not responding to requests for molecule titles.  Only the PDB codes of the results will be displayed.", @"Localized", nil)
-													   delegate:self cancelButtonTitle:@"OK" otherButtonTitles: nil];
-		[alert show];
-		[alert release];					
-		
-		
-		searchResultTitles = [searchResultPDBCodes copy];
+		return [searchResultTitles count] + 1;
 	}
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+	return 60.0;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath;
+{	
+	UITableViewCell *cell;
+	// Running a search, so display a status cell
+	if ((searchResultRetrievalConnection != nil) || ((nextResultsRetrievalConnection != nil) && (indexPath.row >= [searchResultTitles count])))
+	{
+		cell = [tableView dequeueReusableCellWithIdentifier:@"SearchInProgress"];
+		if (cell == nil) 
+		{		
+			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"SearchInProgress"] autorelease];
+			cell.textLabel.textColor = [UIColor blackColor];
+			cell.textLabel.font = [UIFont boldSystemFontOfSize:12.0];
+			
+			//		CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 250.0, 5.0, 240.0, 32.0);
+//			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 70.0, 14.0, 32.0, 32.0);
+			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 70.0f, 20.0f, 20.0f, 20.0f);
+			UIActivityIndicatorView *spinningIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
+			[spinningIndicator startAnimating];
+			spinningIndicator.frame = frame;
+			[cell.contentView addSubview:spinningIndicator];
+			[spinningIndicator release];
+			cell.accessoryType = UITableViewCellAccessoryNone;
+			cell.textLabel.font = [UIFont systemFontOfSize:16.0];
+			cell.textLabel.textAlignment = UITextAlignmentCenter;
+		}
+		cell.textLabel.text = NSLocalizedStringFromTable(@"Searching...", @"Localized", nil);
+	}
+	else if (searchResultTitles == nil)
+		cell = nil;
+	// No results to the last search, so display one cell explaining that
+	else if ([searchResultTitles count] == 0)
+	{
+		cell = [tableView dequeueReusableCellWithIdentifier:@"NoResults"];
+		if (cell == nil) 
+		{		
+			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"NoResults"] autorelease];
+			cell.textLabel.textColor = [UIColor blackColor];
+			cell.textLabel.font = [UIFont systemFontOfSize:16.0];
+			cell.textLabel.text = NSLocalizedStringFromTable(@"No results", @"Localized", nil);
+			cell.textLabel.textAlignment = UITextAlignmentCenter;
+			cell.accessoryType = UITableViewCellAccessoryNone;
+		}
+	}
+	else
+	{
+		if ([indexPath row] >= [searchResultTitles count])
+		{
+			cell = [tableView dequeueReusableCellWithIdentifier:@"LoadMore"];
+			if (cell == nil) 
+			{		
+				cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"LoadMore"] autorelease];
+				cell.textLabel.textColor = [UIColor blackColor];
+				cell.textLabel.font = [UIFont systemFontOfSize:16.0];
+				cell.textLabel.textAlignment = UITextAlignmentCenter;
+				cell.textLabel.text = NSLocalizedStringFromTable(@"Load next 25 results", @"Localized", nil);
+				cell.accessoryType = UITableViewCellAccessoryNone;
+				cell.detailTextLabel.text = @"";
+			}
+		}
+		else
+		{
+			cell = [tableView dequeueReusableCellWithIdentifier:NSLocalizedStringFromTable(@"Results", @"Localized", nil)];
+			if (cell == nil) 
+			{		
+				cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:NSLocalizedStringFromTable(@"Results", @"Localized", nil)] autorelease];
+				cell.textLabel.textColor = [UIColor blackColor];
+				cell.textLabel.font = [UIFont boldSystemFontOfSize:12.0];
+				cell.detailTextLabel.font = [UIFont boldSystemFontOfSize:12.0];
+			}
+
+			cell.textLabel.text = [searchResultTitles objectAtIndex:[indexPath row]];
+			cell.detailTextLabel.text = [searchResultPDBCodes objectAtIndex:[indexPath row]];
+			
+			cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+		}
+	}
+
+	return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath 
+{
+	// Prevent any crashes by clicking on a non-normal cell
+	if (searchResultRetrievalConnection != nil)
+		return;
+	else if (searchResultTitles == nil)
+		return;
+	// No results to the last search, so display one cell explaining that
+	else if ([searchResultTitles count] == 0)
+		return;	
 	
 	
-	if ([searchResultPDBCodes count] < [searchResultTitles count])
-		[searchResultTitles removeLastObject];
-	else if ([searchResultPDBCodes count] > [searchResultTitles count])
-		[searchResultPDBCodes removeLastObject];
-	dictionaryToAssociatePDBCodesAndTitles = [[NSMutableDictionary alloc] initWithObjects:searchResultPDBCodes forKeys:searchResultTitles];
-	[searchResultPDBCodes release];
-	searchResultPDBCodes = nil;
-	// Sort title array by the first instance of the keyword in the name
-	// Match PDB code to title when tapping for a detail view	
+	if (indexPath.row >= [searchResultTitles count])
+	{
+		[self grabNextSetOfSearchResults];
+	}
+	else
+	{
+		NSString *selectedTitle = [searchResultTitles objectAtIndex:[indexPath row]];
+		NSString *selectedPDBCode = [searchResultPDBCodes objectAtIndex:[indexPath row]];
+		
+		SLSMoleculeDownloadViewController *downloadViewController = [[SLSMoleculeDownloadViewController alloc] initWithPDBCode:selectedPDBCode andTitle:selectedTitle];
+		downloadViewController.delegate = self;
+		
+		[self.navigationController pushViewController:downloadViewController animated:YES];
+		[downloadViewController release];	
+	}	
+}
+
+- (void)didReceiveMemoryWarning 
+{
+}
+
+#pragma mark -
+#pragma mark UIViewController methods
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+	keywordSearchBar.delegate = self;
 	
-	[self.tableView reloadData];
+	[super viewWillDisappear:animated];
 }
 
 #pragma mark -
@@ -423,8 +356,18 @@
 	[alert show];
 	[alert release];
 	
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+
 	[downloadedFileContents release];
 	downloadedFileContents = nil;
+	
+	[searchResultRetrievalConnection release];
+	searchResultRetrievalConnection = nil;
+	
+	[nextResultsRetrievalConnection release];
+	nextResultsRetrievalConnection = nil;
+	
+	[self.tableView reloadData];
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data;
@@ -434,21 +377,15 @@
 	
 	[downloadedFileContents appendData:data];
 
-	if (connection == pdbCodeRetrievalConnection)
-	{
-		if ([downloadedFileContents length] > MAX_SEARCH_RESULT_BYTES)
-		{
-			[connection cancel];
-			[self processSearchResults];
-		}
-		
-	}
-
 	if (searchCancelled)
 	{
 		[connection cancel];
 		[downloadedFileContents release];
 		downloadedFileContents = nil;
+		
+		// Release connection?
+		[self.tableView reloadData];
+		
 		searchCancelled = NO;
 		return;
 	}
@@ -461,51 +398,12 @@
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection;
 {
-	if (connection == pdbCodeRetrievalConnection)
-	{
-		[self processSearchResults];
-	}
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+
+	if (connection == searchResultRetrievalConnection)
+		[self processSearchResultsAppendingNewData:NO];
 	else
-	{
-		[titleRetrievalConnection release];
-		titleRetrievalConnection = nil;
-		[self finishLoadingTitles];
-	}
-}
-
-#pragma mark -
-#pragma mark NSXMLParser delegate methods
-
-// Append new characters from within the element to an existing, or newly created, string
-- (void)parser:(NSXMLParser *)parser foundCharacters:(NSString *)string 
-{
-    if (currentXMLElementString == nil) 
-	{
-		currentXMLElementString= [[NSMutableString alloc] init];
-    }
-    [currentXMLElementString appendString:string];
-}
-
-- (void)parser:(NSXMLParser *)parser didEndElement:(NSString *)elementName namespaceURI:(NSString *)namespaceURI qualifiedName:(NSString *)qName 
-{
-	if ([elementName isEqualToString:@"keywordQueryReturn"])
-	{
-		// Last item is nil, check for that
-		if (currentXMLElementString != nil)
-			[searchResultPDBCodes addObject:currentXMLElementString];
-	}
-	
-	[currentXMLElementString release];
-    currentXMLElementString = nil;
-}
-
-- (void)parserDidEndDocument:(NSXMLParser *)parser;
-{
-	[self finishParsingXML];
-}
-
-- (void)parser:(NSXMLParser *)parser parseErrorOccurred:(NSError *)parseError
-{
+		[self processSearchResultsAppendingNewData:YES];
 }
 
 #pragma mark -

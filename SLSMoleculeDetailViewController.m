@@ -37,7 +37,7 @@
 		label.font = [UIFont fontWithName:@"Helvetica" size:18.0];
 		label.backgroundColor = [UIColor groupTableViewBackgroundColor];	
 		label.text = molecule.compound;
-		label.numberOfLines = 3;
+//		label.numberOfLines = 3;
 		label.lineBreakMode = UILineBreakModeWordWrap;
 		label.textAlignment = UITextAlignmentCenter;
 		//	label.text = @"Text";
@@ -79,7 +79,6 @@
 }
 
 - (void)didReceiveMemoryWarning {
-	[super didReceiveMemoryWarning];
 }
 
 #pragma mark -
@@ -146,44 +145,33 @@
 		UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:StatisticsCellIdentifier];
 		if (cell == nil) 
 		{
-			cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:StatisticsCellIdentifier] autorelease];
+			cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:StatisticsCellIdentifier] autorelease];
 			
-			CGRect frame = CGRectMake(CGRectGetMaxX(cell.contentView.bounds) - 170.0f, 5.0f, 160.0f, 32.0f);
-			UILabel *valueLabel = [[UILabel alloc] initWithFrame:frame];
-            [valueLabel setAutoresizingMask:UIViewAutoresizingFlexibleLeftMargin];
-			valueLabel.tag = 1;
-			valueLabel.textAlignment = UITextAlignmentRight;
-			valueLabel.textColor = [UIColor colorWithRed:50.0f/255.0f green:79.0f/255.0f blue:133.0f/255.0f alpha:1.0f];
-            valueLabel.highlightedTextColor = [UIColor whiteColor];
-			[cell.contentView addSubview:valueLabel];
-			[valueLabel release];
+			cell.detailTextLabel.textColor = [UIColor colorWithRed:50.0f/255.0f green:79.0f/255.0f blue:133.0f/255.0f alpha:1.0f];
+            cell.detailTextLabel.highlightedTextColor = [UIColor whiteColor];			
 		}
 		
 		switch (indexPath.row)
 		{
 			case 0:
 			{
-				cell.text = NSLocalizedStringFromTable(@"File name", @"Localized", nil);
-				UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
-				valueLabel.text = molecule.filename;
+				cell.textLabel.text = NSLocalizedStringFromTable(@"File name", @"Localized", nil);
+				cell.detailTextLabel.text = molecule.filename;
 			}; break;
 			case 1:
 			{
-				cell.text = NSLocalizedStringFromTable(@"Number of atoms", @"Localized", nil);
-				UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
-				valueLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfAtoms];
+				cell.textLabel.text = NSLocalizedStringFromTable(@"Number of atoms", @"Localized", nil);
+				cell.detailTextLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfAtoms];
 			}; break;
 			case 2:
 			{
-				cell.text =NSLocalizedStringFromTable(@"Number of structures", @"Localized", nil);
-				UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
-				valueLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfStructures];
+				cell.textLabel.text =NSLocalizedStringFromTable(@"Number of structures", @"Localized", nil);
+				cell.detailTextLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfStructures];
 			}; break;
 			case 3:
 			{
-				cell.text = NSLocalizedStringFromTable(@"Current structure", @"Localized", nil);
-				UILabel *valueLabel = (UILabel *)[cell viewWithTag:1];
-				valueLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfStructureBeingDisplayed];
+				cell.textLabel.text = NSLocalizedStringFromTable(@"Current structure", @"Localized", nil);
+				cell.detailTextLabel.text = [NSString stringWithFormat:@"%d", molecule.numberOfStructureBeingDisplayed];
 			}; break;
 		}
 		return cell;
@@ -194,7 +182,7 @@
 	if (cell == nil) {
 		cell = [[[UITableViewCell alloc] initWithFrame:CGRectZero reuseIdentifier:MyIdentifier] autorelease];
 	}
-	cell.text = [self textForIndexPath:indexPath];
+	cell.textLabel.text = [self textForIndexPath:indexPath];
 	
 	
 //	static NSString *DetailedTextCell = @"DetailedTextCell";
@@ -308,6 +296,7 @@
 				case 0: text = molecule.journalTitle; break;
 				case 1: text = molecule.journalAuthor; break;
 				case 2: text = molecule.journalReference; break;
+				default: text = @""; break;
 			}
 		}; break;
         case SOURCE_SECTION:
@@ -316,13 +305,21 @@
 		case SEQUENCE_SECTION:
 			text = molecule.sequence;
 			break;
-//		default:
-//			result = 43.0;
-//			break;
+		default:
+			text = @"";
+			break;
 	}
 	
 	return [text stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
 	
+}
+
+- (NSIndexPath *)tableView:(UITableView *)tableView willSelectRowAtIndexPath:(NSIndexPath *)indexPath;
+{
+	if (indexPath.section == STATISTICS_SECTION)
+		return nil;
+	
+	return indexPath;
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath 

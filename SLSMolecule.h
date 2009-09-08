@@ -49,10 +49,10 @@ void normalize(GLfloat *v);
 
 	// OpenGL vertex buffer objects
 	unsigned int *m_numberOfIndicesForBuffers;
-	GLuint *m_vertexBufferHandle, *m_normalBufferHandle, *m_indexBufferHandle, *m_colorBufferHandle;
-	NSMutableArray *m_vertexArrays, *m_normalArrays, *m_indexArrays, *m_colorArrays;
+	GLuint *m_vertexBufferHandle, *m_indexBufferHandle;
+	NSMutableArray *m_vertexArrays, *m_indexArrays;
 	unsigned int m_numberOfVertexBuffers;
-	NSMutableData *m_vertexArray, *m_normalArray, *m_indexArray, *m_colorArray;
+	NSMutableData *m_vertexArray, *m_indexArray;
 	unsigned int m_numVertices, m_numIndices;
 	
 	// OpenGL performance tuning statistics
@@ -65,7 +65,7 @@ void normalize(GLfloat *v);
 	// Molecule properties for scaling and translation
 	float centerOfMassInX, centerOfMassInY, centerOfMassInZ;
 	float minimumXPosition, maximumXPosition, minimumYPosition, maximumYPosition, minimumZPosition, maximumZPosition;
-	float scaleAdjustmentForX, scaleAdjustmentForY;
+	float scaleAdjustmentForX, scaleAdjustmentForY, scaleAdjustmentForZ;
 	
 	// Database values
 	sqlite3 *database;
@@ -91,14 +91,12 @@ void normalize(GLfloat *v);
 
 // Molecule 3-D geometry generation
 + (void)setBondColor:(GLubyte *)bondColor forResidueType:(SLSResidueType)residueType;
-- (void)addNormal:(GLfixed *)newNormal;
-- (void)addVertex:(GLfixed *)newVertex;
+- (void)addNormal:(GLfloat *)newNormal;
+- (void)addVertex:(GLfloat *)newVertex;
 - (void)addIndex:(GLushort *)newIndex;
 - (void)addColor:(GLubyte *)newColor;
-- (void)addIcosahedronFaceWithVertex1:(GLfloat *)a vertex2:(GLfloat *)b vertex3:(GLfloat *)c divisions:(int)div radius:(float)r;
 - (void)addAtomToVertexBuffers:(SLSAtomType)atomType atPoint:(SLS3DPoint)newPoint;
 - (void)addBondToVertexBuffersWithStartPoint:(SLS3DPoint)startPoint endPoint:(SLS3DPoint)endPoint bondColor:(GLubyte *)bondColor bondType:(SLSBondType)bondType;
-- (GLfixed)floatToFixed:(GLfloat) aValue;
 
 // Database methods
 + (BOOL)beginTransactionWithDatabase:(sqlite3 *)database;

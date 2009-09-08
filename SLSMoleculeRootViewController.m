@@ -17,10 +17,17 @@
 
 @implementation SLSMoleculeRootViewController
 
-@synthesize glViewController;
-
 #pragma mark -
 #pragma mark Initialiation and breakdown
+
+- (id)init; 
+{
+    if (self = [super init]) 
+	{
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(toggleView:) name:@"ToggleView" object:nil];
+    }
+    return self;
+}
 
 - (void)dealloc 
 {
@@ -32,29 +39,14 @@
 
 - (void)viewDidLoad 
 {
-	// Set up an observer that catches the molecule update notifications and shows and updates the rendering indicator
-	NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
-	[nc addObserver:self selector:@selector(showRenderingIndicator:) name:@"MoleculeRenderingStarted" object:nil];
-	[nc addObserver:self selector:@selector(updateRenderingIndicator:) name:@"MoleculeRenderingUpdate" object:nil];
-	[nc addObserver:self selector:@selector(hideRenderingIndicator:) name:@"MoleculeRenderingEnded" object:nil];
-
-	[nc addObserver:self selector:@selector(showScanningIndicator:) name:@"FileLoadingStarted" object:nil];
-	[nc addObserver:self selector:@selector(updateScanningIndicator:) name:@"FileLoadingUpdate" object:nil];
-	[nc addObserver:self selector:@selector(hideScanningIndicator:) name:@"FileLoadingEnded" object:nil];
-	
-	
 	toggleViewDisabled = NO;
 
-	SLSMoleculeGLViewController *viewController = [[SLSMoleculeGLViewController alloc] initWithNibName:@"SLSMoleculeGLView" bundle:nil];
+	SLSMoleculeGLViewController *viewController = [[SLSMoleculeGLViewController alloc] initWithNibName:nil bundle:nil];
 	self.glViewController = viewController;
 	[viewController release];
 	
 	[self.view addSubview:glViewController.view];
-	[(SLSMoleculeGLView *)glViewController.view setDelegate:self];
-
-	[renderingProgressIndicator setProgress:0.0f];
 }
-
 
 - (void)loadTableViewController 
 {	
@@ -77,55 +69,7 @@
 	toggleViewDisabled = NO;
 }
 
-#pragma mark -
-#pragma mark Interface updates
-
-- (void)showScanningIndicator:(NSNotification *)note;
-{
-	renderingActivityLabel.text = [note object];
-	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
-	[self.view insertSubview:scanningActivityIndicator aboveSubview:glView];
-	[self.view insertSubview:renderingActivityLabel aboveSubview:glView];
-}
-
-- (void)updateScanningIndicator:(NSNotification *)note;
-{
-	
-}
-
-- (void)hideScanningIndicator:(NSNotification *)note;
-{
-	[renderingActivityLabel removeFromSuperview];
-	[scanningActivityIndicator removeFromSuperview];	
-}
-
-- (void)showRenderingIndicator:(NSNotification *)note;
-{
-	renderingActivityLabel.text = NSLocalizedStringFromTable(@"Rendering...", @"Localized", nil);
-	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
-	[glView clearScreen];
-	[renderingProgressIndicator setProgress:0.0];
-	[self.view insertSubview:renderingProgressIndicator aboveSubview:glView];
-	[self.view insertSubview:renderingActivityLabel aboveSubview:glView];
-}
-
-- (void)updateRenderingIndicator:(NSNotification *)note;
-{
-	float percentComplete = [(NSNumber *)[note object] floatValue];
-
-	if ((percentComplete - renderingProgressIndicator.progress) > 0.01f)
-	{
-		renderingProgressIndicator.progress = percentComplete;
-	}
-}
-
-- (void)hideRenderingIndicator:(NSNotification *)note;
-{
-	[renderingActivityLabel removeFromSuperview];
-	[renderingProgressIndicator removeFromSuperview];
-}
-
-- (IBAction)toggleView 
+- (void)toggleView:(NSNotification *)note;
 {	
 	if (molecules == nil)
 		return;
@@ -165,7 +109,7 @@
 		if (bufferedMolecule != previousMolecule)
 		{
 			previousMolecule = bufferedMolecule;
-			[glViewController selectedMoleculeDidChange:bufferedMolecule];
+			glViewController.moleculeToDisplay = bufferedMolecule;
 		}
 		else
 			previousMolecule.isBeingDisplayed = YES;
@@ -182,7 +126,9 @@
 	NSInteger indexOfInitialMolecule = [[NSUserDefaults standardUserDefaults] integerForKey:@"indexOfLastSelectedMolecule"];
 	if (indexOfInitialMolecule >= [molecules count])
 		indexOfInitialMolecule = 0;
-	[glViewController selectedMoleculeDidChange:[molecules objectAtIndex:indexOfInitialMolecule]];
+	
+	if ([molecules count] > 0)
+		glViewController.moleculeToDisplay = [molecules objectAtIndex:indexOfInitialMolecule];
 }
 
 - (void)selectedMoleculeDidChange:(NSInteger)newMoleculeIndex;
@@ -212,16 +158,15 @@
 
 - (void)didReceiveMemoryWarning 
 {
-	[super didReceiveMemoryWarning]; // Releases the view if it doesn't have a superview
-	// Release anything that's not essential, such as cached data
 }
 
 - (void)cancelMoleculeLoading;
 {
-	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
-
-	if (!glView.moleculeToDisplay.isDoneRendering)
-		glView.moleculeToDisplay.isRenderingCancelled = YES;
+	if (!glViewController.moleculeToDisplay.isDoneRendering)
+	{
+		glViewController.moleculeToDisplay.isRenderingCancelled = YES;
+		[NSThread sleepForTimeInterval:0.1];
+	}
 }
 
 - (void)updateTableListOfMolecules;
@@ -236,7 +181,7 @@
 - (void)customURLSelectedForMoleculeDownload:(NSURL *)customURLForMoleculeDownload;
 {
 	bufferedMolecule = nil;
-	[self toggleView];
+	[[NSNotificationCenter defaultCenter] postNotificationName:@"ToggleView" object:nil];
 	//molecules://www.sunsetlakesoftware.com/sites/default/files/xenonPump.pdb
 	//html://www.sunsetlakesoftware.com/sites/default/files/xenonPump.pdb
 	

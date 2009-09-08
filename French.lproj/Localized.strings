@@ -7,7 +7,7 @@
 "Error: failed to dehydrate with message '%s'." = "Erreur: Impossible de déshydrater avec le message '%s'.";
 "Error: failed to insert metadata with message '%s'." = "Erreur: Impossible d'insérer les meta-données avec le message '%s'.";
 "Error: failed to insert bond with message '%s'." = "Erreur: Impossible d'insérer le lien avec le message '%s'.";
-"Failed to create writable database file with message '%@'." = "Impossible de créer une base de donnée modifiable avec le message '%@'."
+"Failed to create writable database file with message '%@'." = "Impossible de créer une base de donnée modifiable avec le message '%@'.";
 "Error: failed to close database with message '%s'." = "Erreur: Impossible de fermer la base de donnée avec le message '%s'.";
 "Failed to open database with message '%s'." = "Impossible d'ouvrir la base de donnée avec le message '%s'.";
 "Initializing database..." = "Initialisation de la base de donnée...";

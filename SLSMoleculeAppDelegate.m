@@ -27,33 +27,44 @@
 
 - (void)applicationDidFinishLaunching:(UIApplication *)application 
 {	
+	//Initialize the application window
+	window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+	if (!window) 
+	{
+		[self release];
+		return;
+	}
+	window.backgroundColor = [UIColor blackColor];
+
+	rootViewController = [[SLSMoleculeRootViewController alloc] init];
+	
+	[window addSubview:rootViewController.view];
+    [window makeKeyAndVisible];
+	[window layoutSubviews];	
+	
+	// Start the initialization of the database, if necessary
 	isHandlingCustomURLMoleculeDownload = NO;
 	downloadedFileContents = nil;
 	initialDatabaseLoadLock = [[NSLock alloc] init];
+
 	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
 
-
-	// This lets the little network activity indicator in the top status bar show when something is being sent or received
+	[self performSelectorInBackground:@selector(loadInitialMoleculesFromDisk) withObject:nil];	
 	
-	[self performSelectorInBackground:@selector(loadInitialMoleculesFromDisk) withObject:nil];
 	
-	[window addSubview:[rootViewController view]];
-	[window makeKeyAndVisible];
-	
-//	UIApplication* app = [UIApplication sharedApplication];
-//	[self application:app handleOpenURL:[NSURL URLWithString:@"molecules://www.sunsetlakesoftware.com/sites/default/files/xenonPump.pdb"]];
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application 
 {
+	[rootViewController cancelMoleculeLoading];
 	[self disconnectFromDatabase];
 }
 
 - (void)dealloc 
 {
 	[initialDatabaseLoadLock release];
-	[rootViewController release];
 	[molecules release];
+	[rootViewController release];
 	[window release];
 	[super dealloc];
 }
@@ -112,7 +123,7 @@
     // Close the database.
     if (sqlite3_close(database) != SQLITE_OK) 
 	{
-		NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to close database with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
+		//NSAssert1(0,NSLocalizedStringFromTable(@"Error: failed to close database with message '%s'.", @"Localized", nil), sqlite3_errmsg(database));
     }
 }
 
@@ -286,6 +297,9 @@
 
 - (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url
 {
+	isHandlingCustomURLMoleculeDownload = YES;
+	[NSThread sleepForTimeInterval:0.5]; // Wait for database to load
+
 	NSString *pathComponentForCustomURL = [[url host] stringByAppendingString:[url path]];
 	NSString *locationOfRemotePDBFile = [NSString stringWithFormat:@"http://%@", pathComponentForCustomURL];
 	nameOfDownloadedMolecule = [[pathComponentForCustomURL lastPathComponent] retain];
@@ -293,8 +307,10 @@
 	// Check to make sure that the file has not already been downloaded, if so, just switch to it
 	NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
 	NSString *documentsDirectory = [paths objectAtIndex:0];	
+	
 	if ([[NSFileManager defaultManager] fileExistsAtPath:[documentsDirectory stringByAppendingPathComponent:nameOfDownloadedMolecule]])
 	{
+
 		NSInteger indexForMoleculeMatchingThisName = 0, currentIndex = 0;
 		for (SLSMolecule *currentMolecule in molecules)
 		{
@@ -305,15 +321,16 @@
 			}
 			currentIndex++;
 		}
-		
+		[initialDatabaseLoadLock lock];
 		[rootViewController selectedMoleculeDidChange:indexForMoleculeMatchingThisName];
 		[rootViewController loadInitialMolecule];
+		[initialDatabaseLoadLock unlock];
 
+		[nameOfDownloadedMolecule release];
+		nameOfDownloadedMolecule = nil;
 		return YES;
 	}
 		
-	isHandlingCustomURLMoleculeDownload = YES;
-	[NSThread sleepForTimeInterval:0.1]; // Wait for cancel action to take place
 
 	[rootViewController cancelMoleculeLoading];
 
@@ -329,8 +346,8 @@
 	NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:locationOfRemotePDBFile]
 											  cachePolicy:NSURLRequestUseProtocolCachePolicy
 										  timeoutInterval:60.0f];
-	NSURLConnection *theConnection=[[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
-	if (theConnection) 
+	downloadConnection = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
+	if (downloadConnection) 
 	{
 		downloadedFileContents = [[NSMutableData data] retain];
 	} 
@@ -347,6 +364,9 @@
 
 - (void)downloadCompleted;
 {
+	[downloadConnection release];
+	downloadConnection = nil;
+	
 	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
 
 	[downloadedFileContents release];

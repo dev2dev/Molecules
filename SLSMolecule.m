@@ -42,17 +42,42 @@ static sqlite3_stmt *deleteBondSQLStatement = nil;
 
 static GLfloat vdata[12][3] = 
 {    
-	{-X, 0.0f, Z}, {X, 0.0f, Z}, {-X, 0.0f, -Z}, {X, 0.0f, -Z},    
-	{0.0f, Z, X}, {0.0f, Z, -X}, {0.0f, -Z, X}, {0.0f, -Z, -X},    
-	{Z, X, 0.0f}, {-Z, X, 0.0f}, {Z, -X, 0.0f}, {-Z, -X, 0.0f} 
+	{-X, 0.0f, Z}, 
+	{0.0f, Z, X}, 
+	{X, 0.0f, Z}, 
+	{-Z, X, 0.0f}, 	
+	{0.0f, Z, -X}, 
+	{Z, X, 0.0f}, 
+	{Z, -X, 0.0f}, 
+	{X, 0.0f, -Z},
+	{-X, 0.0f, -Z},
+	{0.0f, -Z, -X},
+    {0.0f, -Z, X},
+	{-Z, -X, 0.0f} 
 };
 
 static GLushort tindices[20][3] = 
 { 
-	{0,4,1}, {0,9,4}, {9,5,4}, {4,5,8}, {4,8,1},    
-	{8,10,1}, {8,3,10}, {5,3,8}, {5,2,3}, {2,7,3},    
-	{7,10,3}, {7,6,10}, {7,11,6}, {11,0,6}, {0,1,6}, 
-	{6,1,10}, {9,0,11}, {9,11,2}, {9,2,5}, {7,2,11} 
+	{0,1,2},
+	{0,3,1},
+	{3,4,1},
+	{1,4,5},
+	{1,5,2},    
+	{5,6,2},
+	{5,7,6},
+	{4,7,5},
+	{4,8,7},
+	{8,9,7},    
+	{9,6,7},
+	{9,10,6},
+	{9,11,10},
+	{11,0,10},
+	{0,2,10}, 
+	{10,2,6},
+	{3,0,11},
+	{3,11,8},
+	{3,8,4},
+	{9,8,11} 
 };
 
 #pragma mark -
@@ -65,7 +90,6 @@ static GLfloat bondEdges[4][3] =
 
 static GLushort bondIndices[8][3] = 
 {
-//	{0,4,1}, {4,5,1}, {1,5,2}, {5,6,2}, {6,7,2}, {2,7,3}, {3,7,0}, {7,4,0}
 	{0,1,2}, {1,3,2}, {2,3,4}, {3,5,4}, {5,7,4}, {4,7,6}, {6,7,0}, {7,1,0}
 };
 
@@ -93,6 +117,7 @@ void normalize(GLfloat *v)
 	m_numIndices = 0;
 	m_numberOfVertexBuffers = 0;
 	m_vertexArray = nil;
+	m_numberOfIndicesForBuffers = NULL;
 	totalNumberOfVertices = 0;
 	totalNumberOfTriangles = 0;
 	numberOfStructures = 1;
@@ -112,8 +137,6 @@ void normalize(GLfloat *v)
 	
 	m_vertexBufferHandle = NULL;
 	m_indexBufferHandle = NULL;
-	m_normalBufferHandle = NULL;
-	m_colorBufferHandle = NULL;
 	isBeingDisplayed = NO;
 	isRenderingCancelled = NO;
 	
@@ -222,8 +245,11 @@ void normalize(GLfloat *v)
 	
 	scaleAdjustmentForX = 1.5 / (maximumXPosition - minimumXPosition);
 	scaleAdjustmentForY = 1.5 / (maximumYPosition - minimumYPosition);
+	scaleAdjustmentForZ = (1.5 * 1.25) / (maximumZPosition - minimumZPosition);
 	if (scaleAdjustmentForY < scaleAdjustmentForX)
 		scaleAdjustmentForX = scaleAdjustmentForY;
+	if (scaleAdjustmentForZ < scaleAdjustmentForX)
+		scaleAdjustmentForX = scaleAdjustmentForZ;
 		
 	return self;
 }
@@ -251,7 +277,20 @@ void normalize(GLfloat *v)
 {
 	// All buffers are deallocated after they are bound to their OpenGL counterparts,
 	// but we still need to delete the OpenGL buffers themselves when done
+	if (m_numberOfIndicesForBuffers != NULL)
+	{
+		free(m_numberOfIndicesForBuffers);
+//		m_numberOfVertexBuffers = NULL;
+	}
 
+	if (m_vertexBufferHandle != NULL)
+		[self freeVertexBuffers];
+	[m_vertexArrays release];
+	[m_indexArrays release];
+	[m_vertexArray release];
+	[m_indexArray release];
+	
+	
 	[title release];
 	[filename release];
 	[filenameWithoutExtension release];
@@ -447,15 +486,35 @@ void normalize(GLfloat *v)
 	}
 }
 
-- (void)addNormal:(GLfixed *)newNormal;
+- (void)addNormal:(GLfloat *)newNormal;
 {
-	[m_normalArray appendBytes:newNormal length:(sizeof(GLfixed) * 3)];	
-// TODO: Check number of normals against vertices
+	GLshort shortNormals[4];
+	shortNormals[0] = (GLshort)round(newNormal[0] * 32767.0f);
+	
+	shortNormals[1] = (GLshort)round(newNormal[1] * 32767.0f);
+	shortNormals[2] = (GLshort)round(newNormal[2] * 32767.0f);
+	shortNormals[3] = 0;
+	
+	[m_vertexArray appendBytes:shortNormals length:(sizeof(GLshort) * 4)];	
+//	[m_vertexArray appendBytes:newNormal length:(sizeof(GLfloat) * 3)];	
 }
 
-- (void)addVertex:(GLfixed *)newVertex;
+- (void)addVertex:(GLfloat *)newVertex;
 {
-	[m_vertexArray appendBytes:newVertex length:(sizeof(GLfixed) * 3)];
+	GLshort shortVertex[4];
+	shortVertex[0] = (GLshort)round(newVertex[0] * 32767.0f);
+	shortVertex[1] = (GLshort)round(newVertex[1] * 32767.0f);
+	shortVertex[2] = (GLshort)round(newVertex[2] * 32767.0f);
+	shortVertex[3] = 0;
+	
+//	if ( ((newVertex[0] < -1.0f) || (newVertex[0] > 1.0f)) || ((newVertex[1] < -1.0f) || (newVertex[1] > 1.0f)) || ((newVertex[2] < -1.0f) || (newVertex[2] > 1.0f)) )
+//	{
+//		NSLog(@"Vertex outside range: %f, %f, %f", newVertex[0], newVertex[1], newVertex[2]);
+//	}
+	
+	[m_vertexArray appendBytes:shortVertex length:(sizeof(GLshort) * 4)];	
+
+//	[m_vertexArray appendBytes:newVertex length:(sizeof(GLfloat) * 3)];
 	m_numVertices++;
 	totalNumberOfVertices++;
 }
@@ -468,46 +527,12 @@ void normalize(GLfloat *v)
 
 - (void)addColor:(GLubyte *)newColor;
 {
-	[m_colorArray appendBytes:newColor length:(sizeof(GLubyte) * 4)];
-}
-
-- (void)addIcosahedronFaceWithVertex1:(GLfloat *)a vertex2:(GLfloat *)b vertex3:(GLfloat *)c divisions:(int)div radius:(float)r;
-{
-    if (div<=0) 
-	{
-//        glNormal3fv(a); 
-//		glVertex3f(a[0]*r, a[1]*r, a[2]*r);
-//        glNormal3fv(b); 
-//		glVertex3f(b[0]*r, b[1]*r, b[2]*r);
-//        glNormal3fv(c); 
-//		glVertex3f(c[0]*r, c[1]*r, c[2]*r);
-    } 
-	else 
-	{
-        GLfloat ab[3], ac[3], bc[3];
-        for (int i=0;i<3;i++) 
-		{
-            ab[i]=(a[i]+b[i])/2;
-            ac[i]=(a[i]+c[i])/2;
-            bc[i]=(b[i]+c[i])/2;
-        }
-        normalize(ab); 
-		normalize(ac); 
-		normalize(bc);
-		[self addIcosahedronFaceWithVertex1:a vertex2:ab vertex3:ac divisions:(div-1) radius:r];
-		[self addIcosahedronFaceWithVertex1:b vertex2:bc vertex3:ab divisions:(div-1) radius:r];
-		[self addIcosahedronFaceWithVertex1:c vertex2:ac vertex3:bc divisions:(div-1) radius:r];
-		[self addIcosahedronFaceWithVertex1:ab vertex2:bc vertex3:ac divisions:(div-1) radius:r];
-//        drawtri(a, ab, ac, div-1, r);
-//        drawtri(b, bc, ab, div-1, r);
-//        drawtri(c, ac, bc, div-1, r);
-//        drawtri(ab, bc, ac, div-1, r);
-    }  
+	[m_vertexArray appendBytes:newColor length:(sizeof(GLubyte) * 4)];
 }
 
 - (void)addAtomToVertexBuffers:(SLSAtomType)atomType atPoint:(SLS3DPoint)newPoint;
 {
-	GLfixed newVertex[3];
+	GLfloat newVertex[3];
 	GLubyte newColor[4];
 	GLfloat atomRadius = 0.4f;
 
@@ -575,7 +600,7 @@ void normalize(GLfloat *v)
 			newColor[2] = 51;
 			newColor[3] = 255;
 			atomRadius = 2.00f;
-		}
+		}; break;
 		case SILICON:
 		{
 			newColor[0] = 240;
@@ -600,41 +625,38 @@ void normalize(GLfloat *v)
 	
 	atomRadius *= scaleAdjustmentForX;
 
-	int currentCounter;
-	for (currentCounter = 0; currentCounter < 12; currentCounter++)
+	for (int currentCounter = 0; currentCounter < 12; currentCounter++)
 	{
-		newVertex[0] = [self floatToFixed:(vdata[currentCounter][0])];
-		newVertex[1] = [self floatToFixed:(vdata[currentCounter][1])];
-		newVertex[2] = [self floatToFixed:(vdata[currentCounter][2])];
-		
-		// Add sphere normal
-		[self addNormal:newVertex];
-
 		// Adjust radius and shift to match center
-		newVertex[0] = [self floatToFixed:((vdata[currentCounter][0] * atomRadius) + newPoint.x)];
-		newVertex[1] = [self floatToFixed:((vdata[currentCounter][1] * atomRadius) + newPoint.y)];
-		newVertex[2] = [self floatToFixed:((vdata[currentCounter][2] * atomRadius) + newPoint.z)];
-		
+		newVertex[0] = (vdata[currentCounter][0] * atomRadius) + newPoint.x;
+		newVertex[1] = (vdata[currentCounter][1] * atomRadius) + newPoint.y;
+		newVertex[2] = (vdata[currentCounter][2] * atomRadius) + newPoint.z;
+
 		// Add vertex from table
 		[self addVertex:newVertex];
+
+		// Just use original icosahedron for normals
+		newVertex[0] = vdata[currentCounter][0];
+		newVertex[1] = vdata[currentCounter][1];
+		newVertex[2] = vdata[currentCounter][2];
+		
+		// Add sphere normal
+		[self addNormal:newVertex];		
 		
 		// Add a color corresponding to this vertex
 		[self addColor:newColor];
 	}
 	
 	GLushort indexHolder;
-	for (currentCounter = 0; currentCounter < 20; currentCounter++)
+	for (int currentCounter = 0; currentCounter < 20; currentCounter++)
 	{
-		int internalCounter;
 		totalNumberOfTriangles++;
-		for (internalCounter = 0; internalCounter < 3; internalCounter++)
+		for (unsigned int internalCounter = 0; internalCounter < 3; internalCounter++)
 		{
 			indexHolder = baseToAddToIndices + tindices[currentCounter][internalCounter];
 			[self addIndex:&indexHolder];
 		}
-	}
-	
-//	usleep(1000);
+	}	
 }
 
 - (void)addBondToVertexBuffersWithStartPoint:(SLS3DPoint)startPoint endPoint:(SLS3DPoint)endPoint bondColor:(GLubyte *)bondColor bondType:(SLSBondType)bondType;
@@ -663,11 +685,10 @@ void normalize(GLfloat *v)
 	
 	
 	// Do first edge vertices, colors, and normals
-	unsigned int edgeCounter;
-	for (edgeCounter = 0; edgeCounter < 4; edgeCounter++)
+	for (unsigned int edgeCounter = 0; edgeCounter < 4; edgeCounter++)
 	{
 		SLS3DPoint calculatedNormal;
-		GLfixed edgeNormal[3], edgeVertex[3];
+		GLfloat edgeNormal[3], edgeVertex[3];
 		
 		if (xyHypotenuse == 0)
 		{
@@ -690,32 +711,31 @@ void normalize(GLfloat *v)
 			calculatedNormal.x = calculatedNormal.x * xDifference / xzHypotenuse - bondEdges[edgeCounter][2] * zDifference / xzHypotenuse;
 		}
 		
-		edgeNormal[0] = [self floatToFixed:calculatedNormal.x];
-		edgeNormal[1] = [self floatToFixed:calculatedNormal.y];
-		edgeNormal[2] = [self floatToFixed:calculatedNormal.z];
+		edgeVertex[0] = (calculatedNormal.x * bondRadius) + startPoint.x;
+		edgeVertex[1] = (calculatedNormal.y * bondRadius) + startPoint.y;
+		edgeVertex[2] = (calculatedNormal.z * bondRadius) + startPoint.z;
+		[self addVertex:edgeVertex];
+
+		edgeNormal[0] = calculatedNormal.x;
+		edgeNormal[1] = calculatedNormal.y;
+		edgeNormal[2] = calculatedNormal.z;
 		
 		[self addNormal:edgeNormal];
 		[self addColor:bondColor];
-		edgeVertex[0] = [self floatToFixed:((calculatedNormal.x * bondRadius) + startPoint.x)];
-		edgeVertex[1] = [self floatToFixed:((calculatedNormal.y * bondRadius) + startPoint.y)];
-		edgeVertex[2] = [self floatToFixed:((calculatedNormal.z * bondRadius) + startPoint.z)];
-		[self addVertex:edgeVertex];
 		
+		edgeVertex[0] = (calculatedNormal.x * bondRadius) + endPoint.x;
+		edgeVertex[1] = (calculatedNormal.y * bondRadius) + endPoint.y;
+		edgeVertex[2] = (calculatedNormal.z * bondRadius) + endPoint.z;
+		[self addVertex:edgeVertex];
 		[self addNormal:edgeNormal];
 		[self addColor:bondColor];
-		edgeVertex[0] = [self floatToFixed:((calculatedNormal.x * bondRadius) + endPoint.x)];
-		edgeVertex[1] = [self floatToFixed:((calculatedNormal.y * bondRadius) + endPoint.y)];
-		edgeVertex[2] = [self floatToFixed:((calculatedNormal.z * bondRadius) + endPoint.z)];
-		[self addVertex:edgeVertex];
 	}
 
-	int currentCounter;
-	for (currentCounter = 0; currentCounter < 8; currentCounter++)
+	for (unsigned int currentCounter = 0; currentCounter < 8; currentCounter++)
 	{
-		int internalCounter;
 		totalNumberOfTriangles++;
 
-		for (internalCounter = 0; internalCounter < 3; internalCounter++)
+		for (unsigned int internalCounter = 0; internalCounter < 3; internalCounter++)
 		{
 			GLushort indexHolder = baseToAddToIndices + bondIndices[currentCounter][internalCounter];
 			[self addIndex:&indexHolder];
@@ -724,28 +744,18 @@ void normalize(GLfloat *v)
 	
 }
 
-- (GLfixed)floatToFixed:(GLfloat)aValue;
-{ 
-	return (GLfixed) (aValue * 65536.0f); 
-}
-
 #pragma mark -
 #pragma mark Database methods
 
 + (BOOL)beginTransactionWithDatabase:(sqlite3 *)database;
 {
-//	sqlite3_exec(database, "BEGIN EXCLUSIVE TRANSACTION");
-
-	const char *sql1 = "BEGIN EXCLUSIVE TRANSACTION"; // changed this to sql1
-	sqlite3_stmt *begin_statement; // added this
-	if (sqlite3_prepare_v2(database, sql1, -1, &begin_statement, NULL) != SQLITE_OK) // changed to sql1
+	const char *sql1 = "BEGIN EXCLUSIVE TRANSACTION";
+	sqlite3_stmt *begin_statement;
+	if (sqlite3_prepare_v2(database, sql1, -1, &begin_statement, NULL) != SQLITE_OK)
 	{
 		return NO;
 	}
-	// Execute the query.
-	int success = sqlite3_step(begin_statement);
-	// Handle errors.
-	if (success != SQLITE_DONE) 
+	if (sqlite3_step(begin_statement) != SQLITE_DONE) 
 	{
 		return NO;
 	}
@@ -755,18 +765,13 @@ void normalize(GLfloat *v)
 
 + (BOOL)endTransactionWithDatabase:(sqlite3 *)database;
 {
-//	sqlite3_exec(database, "COMMIT TRANSACTION");
-
-	const char *sql2 = "COMMIT TRANSACTION"; // changed this to sql2
-	sqlite3_stmt *commit_statement; // added this
-	if (sqlite3_prepare_v2(database, sql2, -1, &commit_statement, NULL) != SQLITE_OK) // modified this to sql2
+	const char *sql2 = "COMMIT TRANSACTION";
+	sqlite3_stmt *commit_statement;
+	if (sqlite3_prepare_v2(database, sql2, -1, &commit_statement, NULL) != SQLITE_OK)
 	{
 		return NO;
 	}
-	// Execute the query.
-	int success = sqlite3_step(commit_statement);
-	// Handle errors.
-	if (success != SQLITE_DONE) 
+	if (sqlite3_step(commit_statement) != SQLITE_DONE) 
 	{
 		return NO;
 	}
@@ -1007,14 +1012,8 @@ void normalize(GLfloat *v)
 	sqlite3_bind_int(retrieveAtomSQLStatement, 1, databaseKey);
 	sqlite3_bind_int(retrieveAtomSQLStatement, 2, numberOfStructureBeingDisplayed);
 	
-	while (sqlite3_step(retrieveAtomSQLStatement) == SQLITE_ROW) 
+	while ((sqlite3_step(retrieveAtomSQLStatement) == SQLITE_ROW) && !isRenderingCancelled)
 	{
-		if (isRenderingCancelled)
-		{
-			sqlite3_reset(retrieveAtomSQLStatement);
-			return;
-		}
-
 		//(id,molecule,residue,structure,element,x,y,z);"
 		if ( (currentFeatureBeingRendered % 100) == 0)
 			[self performSelectorOnMainThread:@selector(updateStatusIndicator) withObject:nil waitUntilDone:NO];
@@ -1060,14 +1059,8 @@ void normalize(GLfloat *v)
 	sqlite3_bind_int(retrieveBondSQLStatement, 1, databaseKey);
 	sqlite3_bind_int(retrieveBondSQLStatement, 2, numberOfStructureBeingDisplayed);
 
-	while (sqlite3_step(retrieveBondSQLStatement) == SQLITE_ROW) 
+	while ((sqlite3_step(retrieveBondSQLStatement) == SQLITE_ROW) && !isRenderingCancelled)
 	{
-		if (isRenderingCancelled)
-		{
-			sqlite3_reset(retrieveBondSQLStatement);			
-			return;
-		}
-
 		//(id ,molecule ,residue ,structure ,bond_type ,start_x ,start_y ,start_z ,end_x ,end_y ,end_z )
 		
 		// TODO: Determine if rendering a particular structure, if not don't render atom 
@@ -1191,19 +1184,13 @@ void normalize(GLfloat *v)
 	if (m_vertexArray != nil)
 	{
 		[m_vertexArray release];
-		[m_normalArray release];
 		[m_indexArray release];
-		[m_colorArray release];
 	}
 	m_vertexArray = [[NSMutableData alloc] init];
-	m_normalArray = [[NSMutableData alloc] init];
 	m_indexArray = [[NSMutableData alloc] init];
-	m_colorArray = [[NSMutableData alloc] init];
 	m_numberOfVertexBuffers++;
 	[m_vertexArrays addObject:m_vertexArray];
-	[m_normalArrays addObject:m_normalArray];
 	[m_indexArrays addObject:m_indexArray];
-	[m_colorArrays addObject:m_colorArray];
 	m_numVertices = 0;
 	m_numIndices = 0;
 }
@@ -1216,9 +1203,7 @@ void normalize(GLfloat *v)
 	[self performSelectorOnMainThread:@selector(showStatusIndicator) withObject:nil waitUntilDone:NO];
 
 	m_vertexArrays = [[NSMutableArray alloc] init];
-	m_normalArrays = [[NSMutableArray alloc] init];
 	m_indexArrays = [[NSMutableArray alloc] init];
-	m_colorArrays = [[NSMutableArray alloc] init];
 
 	m_numberOfVertexBuffers = 0;
 	[self addVertexBuffer];
@@ -1267,13 +1252,6 @@ void normalize(GLfloat *v)
 		m_vertexArray = nil;
 		[m_vertexArrays release];	
 		
-		[m_normalArray release];			
-		m_normalArray = nil;
-		[m_normalArrays release];			
-		
-		[m_colorArray release];			
-		m_colorArray = nil;
-		[m_colorArrays release];					
 	}
 	
 
@@ -1287,13 +1265,16 @@ void normalize(GLfloat *v)
 - (void)bindVertexBuffersForMolecule;
 {
 	m_vertexBufferHandle = (GLuint *) malloc(sizeof(GLuint) * m_numberOfVertexBuffers);
-	m_normalBufferHandle = (GLuint *) malloc(sizeof(GLuint) * m_numberOfVertexBuffers);
 	m_indexBufferHandle = (GLuint *) malloc(sizeof(GLuint) * m_numberOfVertexBuffers);
-	m_colorBufferHandle = (GLuint *) malloc(sizeof(GLuint) * m_numberOfVertexBuffers);
+	if (m_numberOfIndicesForBuffers != NULL)
+	{
+		free(m_numberOfIndicesForBuffers);
+//		m_numberOfVertexBuffers = null;
+	}
+	
 	m_numberOfIndicesForBuffers = (unsigned int *) malloc(sizeof(unsigned int) * m_numberOfVertexBuffers);
-
-	unsigned int bufferIndex;
-	for (bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
+	
+	for (unsigned int bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
 	{
 		glGenBuffers(1, &m_indexBufferHandle[bufferIndex]); 
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBufferHandle[bufferIndex]);   
@@ -1301,77 +1282,41 @@ void normalize(GLfloat *v)
 		NSData *currentIndexBuffer = [m_indexArrays objectAtIndex:bufferIndex];
 		GLushort *indexBuffer = (GLushort *)[currentIndexBuffer bytes];
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, [currentIndexBuffer length], indexBuffer, GL_STATIC_DRAW);     
-		m_numberOfIndicesForBuffers[bufferIndex] = ([currentIndexBuffer length] / sizeof(GLushort));
-		
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // Is this necessary?
+
+		m_numberOfIndicesForBuffers[bufferIndex] = ([currentIndexBuffer length] / sizeof(GLushort));		
 	}	
 	// Now that the data is in the OpenGL buffer, can release the NSData
+
     [m_indexArray release];	
 	m_indexArray = nil;
 	[m_indexArrays release];
+	m_indexArrays = nil;
 	
-	for (bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
+	for (unsigned int bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
 	{	
 		glGenBuffers(1, &m_vertexBufferHandle[bufferIndex]); 
 		glBindBuffer(GL_ARRAY_BUFFER, m_vertexBufferHandle[bufferIndex]); 
 
 		NSData *currentVertexBuffer = [m_vertexArrays objectAtIndex:bufferIndex];
-		GLfixed *vertexBuffer = (GLfixed *)[currentVertexBuffer bytes];
-		glBufferData(GL_ARRAY_BUFFER, [currentVertexBuffer length], vertexBuffer, GL_STATIC_DRAW); 
-		glBindBuffer(GL_ARRAY_BUFFER, 0); 
+		glBufferData(GL_ARRAY_BUFFER, [currentVertexBuffer length], (void *)[currentVertexBuffer bytes], GL_STATIC_DRAW); 
+
+//		glBindBuffer(GL_ARRAY_BUFFER, 0); 
 	}
 	[m_vertexArray release];
 	m_vertexArray = nil;
 	[m_vertexArrays release];	
-	
-	for (bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
-	{	
-		glGenBuffers(1, &m_normalBufferHandle[bufferIndex]); 
-		glBindBuffer(GL_ARRAY_BUFFER, m_normalBufferHandle[bufferIndex]); 
-
-		NSData *currentNormalBuffer = [m_normalArrays objectAtIndex:bufferIndex];
-		GLfixed *normalBuffer = (GLfixed *)[currentNormalBuffer bytes];
-		glBufferData(GL_ARRAY_BUFFER, [currentNormalBuffer length], normalBuffer, GL_STATIC_DRAW); 
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-	}	
-    [m_normalArray release];			
-	m_normalArray = nil;
-    [m_normalArrays release];			
-
-	for (bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
-	{	
-		glGenBuffers(1, &m_colorBufferHandle[bufferIndex]); 
-		glBindBuffer(GL_ARRAY_BUFFER, m_colorBufferHandle[bufferIndex]); 
-		
-		NSData *currentColorBuffer = [m_colorArrays objectAtIndex:bufferIndex];
-		GLubyte *colorBuffer = (GLubyte *)[currentColorBuffer bytes];
-		glBufferData(GL_ARRAY_BUFFER, [currentColorBuffer length], colorBuffer, GL_STATIC_DRAW); 
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-	}	
-    [m_colorArray release];			
-	m_colorArray = nil;
-    [m_colorArrays release];			
-	
+	m_vertexArrays = nil;
 }
 
 - (void)drawMolecule;
 {
-	glEnableClientState (GL_VERTEX_ARRAY);
-	glEnableClientState (GL_NORMAL_ARRAY);
-	glEnableClientState (GL_COLOR_ARRAY);
-	
-	unsigned int bufferIndex;
-	for (bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
+	for (unsigned int bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
 	{
 		// Bind the buffers
 		glBindBuffer(GL_ARRAY_BUFFER, m_vertexBufferHandle[bufferIndex]); 
-		glVertexPointer(3, GL_FIXED, 0, NULL); 
-		
-		glBindBuffer(GL_ARRAY_BUFFER, m_normalBufferHandle[bufferIndex]); 
-		glNormalPointer(GL_FIXED, 0, NULL); 
-		
-		glBindBuffer(GL_ARRAY_BUFFER, m_colorBufferHandle[bufferIndex]); 
-		glColorPointer(4, GL_UNSIGNED_BYTE, 0, NULL);
+		glVertexPointer(3, GL_SHORT, 20, (char *)NULL + 0); 		
+		glNormalPointer(GL_SHORT, 20, (char *)NULL + 8); 
+		glColorPointer(4, GL_UNSIGNED_BYTE, 20, (char *)NULL + 16);
 		
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBufferHandle[bufferIndex]);    
 
@@ -1382,37 +1327,34 @@ void normalize(GLfloat *v)
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); 
 		glBindBuffer(GL_ARRAY_BUFFER, 0); 
 	}
-	
-
-	glDisableClientState (GL_COLOR_ARRAY);	
-	glDisableClientState (GL_VERTEX_ARRAY);
-	glDisableClientState (GL_NORMAL_ARRAY);	
 }
 
 - (void)freeVertexBuffers;
 {
 	if (isRenderingCancelled)
 		return;
-	unsigned int bufferIndex;
-	for (bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
+	for (unsigned int bufferIndex = 0; bufferIndex < m_numberOfVertexBuffers; bufferIndex++)
 	{
 		glDeleteBuffers(1, &m_indexBufferHandle[bufferIndex]);
 		glDeleteBuffers(1, &m_vertexBufferHandle[bufferIndex]);
-		glDeleteBuffers(1, &m_normalBufferHandle[bufferIndex]);
-		glDeleteBuffers(1, &m_colorBufferHandle[bufferIndex]);
 	}
 
 	
 	if (m_vertexBufferHandle != NULL)
+	{
 		free(m_vertexBufferHandle);
-	if (m_normalBufferHandle != NULL)
-		free(m_normalBufferHandle);
+		m_vertexBufferHandle = NULL;
+	}
 	if (m_indexBufferHandle != NULL)
+	{
 		free(m_indexBufferHandle);
-	if (m_colorBufferHandle != NULL)
-		free(m_colorBufferHandle);
+		m_indexBufferHandle = NULL;
+	}
 	if (m_numberOfIndicesForBuffers != NULL)
+	{
 		free(m_numberOfIndicesForBuffers);
+		m_numberOfIndicesForBuffers = NULL;
+	}
 	
 	totalNumberOfTriangles = 0;
 	totalNumberOfVertices = 0;
@@ -1455,4 +1397,5 @@ void normalize(GLfloat *v)
 	// Start with a new render for the current visualization type
 	self.isBeingDisplayed = YES;
 }
+
 @end

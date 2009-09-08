@@ -357,7 +357,7 @@ static NSDictionary *pdbResidueLookupTable;
 	
 	NSMutableDictionary *atomCoordinates = [[NSMutableDictionary alloc] init];
 	NSMutableDictionary *residueAtoms = nil;
-	NSString *currentResidueType;
+	NSString *currentResidueType = nil;
 	int currentResidueNumber = -1;
 		
 	stillCountingAtomsInFirstStructure = YES;
@@ -389,7 +389,10 @@ static NSDictionary *pdbResidueLookupTable;
 	}
 
 	if (pdbData == nil)
+	{
+		[atomCoordinates release];
 		return NO;
+	}
 	
 	// Wrap all SQLite write operations in a BEGIN, COMMIT block to make writing one operation
 	[SLSMolecule beginTransactionWithDatabase:database];
@@ -440,6 +443,7 @@ static NSDictionary *pdbResidueLookupTable;
 						[residueAtoms release];
 						residueAtoms = nil;
 						[currentResidueType release];
+						currentResidueType = nil;
 					}
 					
 					self.previousTerminalAtomValue = nil;
@@ -528,6 +532,7 @@ static NSDictionary *pdbResidueLookupTable;
 					[residueAtoms release];
 					residueAtoms = nil;
 					[currentResidueType release];
+					currentResidueType = nil;
 				}
 				
 				self.previousTerminalAtomValue = nil;
@@ -647,6 +652,10 @@ static NSDictionary *pdbResidueLookupTable;
 		
 		[pool release];
 	}
+	[residueAtoms release];
+	residueAtoms = nil;
+	[currentResidueType release];
+	currentResidueType = nil;
 	[pdbFileContents release];
 	
 	if (numberOfAtoms > 0)
@@ -656,8 +665,11 @@ static NSDictionary *pdbResidueLookupTable;
 		centerOfMassInZ = tallyForCenterOfMassInZ / (float)numberOfAtoms;
 		scaleAdjustmentForX = 1.5 / (maximumXPosition - minimumXPosition);
 		scaleAdjustmentForY = 1.5 / (maximumYPosition - minimumYPosition);
+		scaleAdjustmentForZ = (1.5 * 1.25) / (maximumZPosition - minimumZPosition);
 		if (scaleAdjustmentForY < scaleAdjustmentForX)
 			scaleAdjustmentForX = scaleAdjustmentForY;
+		if (scaleAdjustmentForZ < scaleAdjustmentForX)
+			scaleAdjustmentForX = scaleAdjustmentForZ;
 	}
 	
 	// Convert the strings to title case and strip off the ;s at the end of lines

@@ -32,6 +32,18 @@
 
 - (void)dealloc;
 {
+	self.pdbDownloadDisplayView = nil;
+	self.pdbInformationWebView = nil;
+	self.moleculeTitleText = nil;
+	self.downloadStatusText = nil;
+	self.pdbInformationDisplayButton = nil;
+	self.pdbDownloadButton = nil;
+	self.downloadStatusBar = nil;
+	self.indefiniteDownloadIndicator = nil;
+	self.pdbCodeSearchWebView = nil;
+	self.webLoadingLabel = nil;
+	self.webLoadingIndicator = nil;
+	
 	[self cancelDownload];
 	[codeForCurrentlyDownloadingProtein release];
 	[titleForCurrentlyDownloadingProtein release];
@@ -63,7 +75,7 @@
 	
 	[pdbDownloadButton setTitle:NSLocalizedStringFromTable(@"Download", @"Localized", nil) forState:UIControlStateNormal];	
 	[pdbDownloadButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-	[pdbDownloadButton setFont:[UIFont boldSystemFontOfSize:14.0]];
+	//[pdbDownloadButton setFont:[UIFont boldSystemFontOfSize:14.0]];
 	
 	UIImage *newImage = [[UIImage imageNamed:@"greenButton.png"] stretchableImageWithLeftCapWidth:12.0f topCapHeight:0.0f];
 	[pdbDownloadButton setBackgroundImage:newImage forState:UIControlStateNormal];
@@ -86,8 +98,6 @@
 
 - (void)didReceiveMemoryWarning 
 {
-	[super didReceiveMemoryWarning]; // Releases the view if it doesn't have a superview
-	// Release anything that's not essential, such as cached data
 }
 
 #pragma mark -
@@ -126,7 +136,8 @@
 	[UIView setAnimationTransition:UIViewAnimationTransitionCurlDown forView:self.view cache:YES];
 	
 	self.navigationItem.rightBarButtonItem = nil;
-	
+	pdbCodeSearchWebView.delegate = nil;
+
 	[pdbInformationWebView removeFromSuperview];
 	[self.view addSubview:pdbDownloadDisplayView];
 	
@@ -155,11 +166,12 @@
 	// TODO: Put this check in the init method to grey out download button
 	NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
 	NSString *documentsDirectory = [paths objectAtIndex:0];
-		
+
 	if ([[NSFileManager defaultManager] fileExistsAtPath:[documentsDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.pdb.gz", codeForCurrentlyDownloadingProtein]]])
 	{
 		UIAlertView *alert = [[UIAlertView alloc] initWithTitle:NSLocalizedStringFromTable(@"File already exists", @"Localized", nil) message:NSLocalizedStringFromTable(@"The molecule with this PDB code has already been downloaded", @"Localized", nil)
 													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
+		alert.backgroundColor = [UIColor redColor];
 		[alert show];
 		[alert release];
 		return;
@@ -198,8 +210,8 @@
 	NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:locationOfRemotePDBFile]
 											  cachePolicy:NSURLRequestUseProtocolCachePolicy
 										  timeoutInterval:60.0];
-	NSURLConnection *theConnection=[[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
-	if (theConnection) 
+	downloadConnection = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
+	if (downloadConnection) 
 	{
 		// Create the NSMutableData that will hold
 		// the received data
@@ -222,13 +234,15 @@
 
 - (void)downloadCompleted;
 {
-	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+	[downloadConnection release];
+	downloadConnection = nil;
+	
 
 	[downloadedFileContents release];
 	downloadedFileContents = nil;
 	downloadStatusBar.hidden = YES;
-	[indefiniteDownloadIndicator stopAnimating];
 	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+	[indefiniteDownloadIndicator stopAnimating];
 	downloadStatusText.hidden = YES;
 
 	[self enableControls:YES];
@@ -329,9 +343,27 @@
 }
 
 #pragma mark -
+#pragma mark UIViewController methods
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+	pdbCodeSearchWebView.delegate = nil;
+	
+	[super viewWillDisappear:animated];
+}
+
+#pragma mark -
 #pragma mark Accessors
 
 @synthesize delegate;
+@synthesize pdbDownloadDisplayView, pdbInformationWebView;
+@synthesize moleculeTitleText, downloadStatusText;
+@synthesize pdbInformationDisplayButton, pdbDownloadButton;
+@synthesize downloadStatusBar;
+@synthesize indefiniteDownloadIndicator;
+@synthesize pdbCodeSearchWebView;
+@synthesize webLoadingLabel;
+@synthesize webLoadingIndicator;
 
 
 @end
