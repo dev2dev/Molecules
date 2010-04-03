@@ -19,7 +19,8 @@
 {
 	UIWindow *window;
 	SLSMoleculeRootViewController *rootViewController;
-
+	UIViewController *splitViewController;
+	
 	NSURLConnection *downloadConnection;
 	NSMutableData *downloadedFileContents;
 	NSString *nameOfDownloadedMolecule;
@@ -34,6 +35,9 @@
 
 @property (nonatomic, retain) UIWindow *window;
 @property (nonatomic, retain) SLSMoleculeRootViewController *rootViewController;
+
+// Device-specific interface control
++ (BOOL)isRunningOniPad;
 
 // Database access
 - (BOOL)createEditableCopyOfDatabaseIfNeeded; 
@@ -50,6 +54,7 @@
 - (void)hideStatusIndicator;
 
 // Custom molecule download methods
+- (BOOL)handleCustomURLScheme:(NSURL *)url;
 - (void)downloadCompleted;
 - (void)saveMoleculeWithData:(NSData *)moleculeData toFilename:(NSString *)filename;
 

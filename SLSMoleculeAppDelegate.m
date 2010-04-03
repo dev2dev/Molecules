@@ -10,6 +10,7 @@
 
 #import "SLSMoleculeAppDelegate.h"
 #import "SLSMoleculeRootViewController.h"
+#import "SLSMoleculeiPadRootViewController.h"
 #import "SLSMolecule.h"
 #import "NSData+Gzip.h"
 
@@ -25,20 +26,34 @@
 #pragma mark -
 #pragma mark Initialization / teardown
 
-- (void)applicationDidFinishLaunching:(UIApplication *)application 
+- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions   
 {	
 	//Initialize the application window
 	window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 	if (!window) 
 	{
 		[self release];
-		return;
+		return NO;
 	}
 	window.backgroundColor = [UIColor blackColor];
 
-	rootViewController = [[SLSMoleculeRootViewController alloc] init];
+	if ([SLSMoleculeAppDelegate isRunningOniPad])
+	{
+		UISplitViewController *newSplitViewController = [[UISplitViewController alloc] init];
+		rootViewController = [[SLSMoleculeiPadRootViewController alloc] init];
+		[rootViewController loadView];
+		newSplitViewController.viewControllers = [NSArray arrayWithObjects:rootViewController.tableNavigationController, rootViewController, nil];
+		newSplitViewController.delegate = (SLSMoleculeiPadRootViewController *)rootViewController;
+		splitViewController = newSplitViewController;
+		[window addSubview:splitViewController.view];
+	}
+	else
+	{
+		rootViewController = [[SLSMoleculeRootViewController alloc] init];
+		[window addSubview:rootViewController.view];
+	}
 	
-	[window addSubview:rootViewController.view];
+	
     [window makeKeyAndVisible];
 	[window layoutSubviews];	
 	
@@ -49,9 +64,17 @@
 
 	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
 
+	NSURL *url = (NSURL *)[launchOptions valueForKey:UIApplicationLaunchOptionsURLKey];
+	
+	if (url != nil)
+		isHandlingCustomURLMoleculeDownload = YES;
 	[self performSelectorInBackground:@selector(loadInitialMoleculesFromDisk) withObject:nil];	
 	
 	
+	// Handle the Molecules custom URL scheme
+	[self handleCustomURLScheme:url];
+	
+	return YES;
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application 
@@ -62,11 +85,38 @@
 
 - (void)dealloc 
 {
+	[splitViewController release];
 	[initialDatabaseLoadLock release];
 	[molecules release];
 	[rootViewController release];
 	[window release];
 	[super dealloc];
+}
+
+#pragma mark -
+#pragma mark Device-specific interface control
+
++ (BOOL)isRunningOniPad;
+{
+	static BOOL hasCheckediPadStatus = NO;
+	static BOOL isRunningOniPad = NO;
+	
+	if (!hasCheckediPadStatus)
+	{
+		if ([[UIDevice currentDevice] respondsToSelector:@selector(userInterfaceIdiom)])
+		{
+			if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad)
+			{
+				isRunningOniPad = YES;
+				hasCheckediPadStatus = YES;
+				return isRunningOniPad;
+			}
+		}
+
+		hasCheckediPadStatus = YES;
+	}
+	
+	return isRunningOniPad;
 }
 
 #pragma mark -
@@ -175,7 +225,7 @@
 		[self loadMissingMoleculesIntoDatabase];
 		
 		[[NSUserDefaults standardUserDefaults] synchronize];		
-		[self performSelectorOnMainThread:@selector(hideStatusIndicator) withObject:nil waitUntilDone:NO];
+		[self performSelectorOnMainThread:@selector(hideStatusIndicator) withObject:nil waitUntilDone:YES];
 	}
 	else
 	{
@@ -190,6 +240,11 @@
 	rootViewController.molecules = molecules;
 	[initialDatabaseLoadLock unlock];
 
+	if ([SLSMoleculeAppDelegate isRunningOniPad])
+	{
+		[[rootViewController.tableViewController tableView] performSelectorOnMainThread:@selector(reloadData) withObject:nil waitUntilDone:NO];
+	}
+	
 	if (!isHandlingCustomURLMoleculeDownload)
 		[rootViewController loadInitialMolecule];
 	[pool release];
@@ -292,75 +347,75 @@
 {
 }
 
-#pragma mark - 
-#pragma mark Custom URL handler
-
-- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url
-{
-	isHandlingCustomURLMoleculeDownload = YES;
-	[NSThread sleepForTimeInterval:0.5]; // Wait for database to load
-
-	NSString *pathComponentForCustomURL = [[url host] stringByAppendingString:[url path]];
-	NSString *locationOfRemotePDBFile = [NSString stringWithFormat:@"http://%@", pathComponentForCustomURL];
-	nameOfDownloadedMolecule = [[pathComponentForCustomURL lastPathComponent] retain];
-
-	// Check to make sure that the file has not already been downloaded, if so, just switch to it
-	NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-	NSString *documentsDirectory = [paths objectAtIndex:0];	
-	
-	if ([[NSFileManager defaultManager] fileExistsAtPath:[documentsDirectory stringByAppendingPathComponent:nameOfDownloadedMolecule]])
-	{
-
-		NSInteger indexForMoleculeMatchingThisName = 0, currentIndex = 0;
-		for (SLSMolecule *currentMolecule in molecules)
-		{
-			if ([[currentMolecule filename] isEqualToString:nameOfDownloadedMolecule])
-			{
-				indexForMoleculeMatchingThisName = currentIndex;
-				break;
-			}
-			currentIndex++;
-		}
-		[initialDatabaseLoadLock lock];
-		[rootViewController selectedMoleculeDidChange:indexForMoleculeMatchingThisName];
-		[rootViewController loadInitialMolecule];
-		[initialDatabaseLoadLock unlock];
-
-		[nameOfDownloadedMolecule release];
-		nameOfDownloadedMolecule = nil;
-		return YES;
-	}
-		
-
-	[rootViewController cancelMoleculeLoading];
-
-	[NSThread sleepForTimeInterval:0.1]; // Wait for cancel action to take place
-
-	downloadCancelled = NO;
-
-	// Start download of new molecule
-	[self showDownloadIndicator];
-	
-
-	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
-	NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:locationOfRemotePDBFile]
-											  cachePolicy:NSURLRequestUseProtocolCachePolicy
-										  timeoutInterval:60.0f];
-	downloadConnection = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
-	if (downloadConnection) 
-	{
-		downloadedFileContents = [[NSMutableData data] retain];
-	} 
-	else 
-	{
-		// inform the user that the download could not be made
-		return NO;
-	}
-	return YES;
-}
-
 #pragma mark -
 #pragma mark Custom molecule download methods
+
+- (BOOL)handleCustomURLScheme:(NSURL *)url;
+{
+	if (url != nil)
+	{
+		isHandlingCustomURLMoleculeDownload = YES;
+		[NSThread sleepForTimeInterval:0.5]; // Wait for database to load
+		
+		NSString *pathComponentForCustomURL = [[url host] stringByAppendingString:[url path]];
+		NSString *locationOfRemotePDBFile = [NSString stringWithFormat:@"http://%@", pathComponentForCustomURL];
+		nameOfDownloadedMolecule = [[pathComponentForCustomURL lastPathComponent] retain];
+		
+		// Check to make sure that the file has not already been downloaded, if so, just switch to it
+		NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+		NSString *documentsDirectory = [paths objectAtIndex:0];	
+		
+		if ([[NSFileManager defaultManager] fileExistsAtPath:[documentsDirectory stringByAppendingPathComponent:nameOfDownloadedMolecule]])
+		{
+			
+			NSInteger indexForMoleculeMatchingThisName = 0, currentIndex = 0;
+			for (SLSMolecule *currentMolecule in molecules)
+			{
+				if ([[currentMolecule filename] isEqualToString:nameOfDownloadedMolecule])
+				{
+					indexForMoleculeMatchingThisName = currentIndex;
+					break;
+				}
+				currentIndex++;
+			}
+			[initialDatabaseLoadLock lock];
+			[rootViewController selectedMoleculeDidChange:indexForMoleculeMatchingThisName];
+			[rootViewController loadInitialMolecule];
+			[initialDatabaseLoadLock unlock];
+			
+			[nameOfDownloadedMolecule release];
+			nameOfDownloadedMolecule = nil;
+			return YES;
+		}
+		
+		
+		[rootViewController cancelMoleculeLoading];
+		
+		[NSThread sleepForTimeInterval:0.1]; // Wait for cancel action to take place
+		
+		downloadCancelled = NO;
+		
+		// Start download of new molecule
+		[self showDownloadIndicator];
+		
+		
+		[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+		NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:locationOfRemotePDBFile]
+												  cachePolicy:NSURLRequestUseProtocolCachePolicy
+											  timeoutInterval:60.0f];
+		downloadConnection = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
+		if (downloadConnection) 
+		{
+			downloadedFileContents = [[NSMutableData data] retain];
+		} 
+		else 
+		{
+			// inform the user that the download could not be made
+			return NO;
+		}
+	}	
+	return YES;
+}
 
 - (void)downloadCompleted;
 {

@@ -11,7 +11,7 @@
 #import "SLSMoleculeGLViewController.h"
 #import "SLSMoleculeGLView.h"
 #import "SLSMolecule.h"
-#import "SLSMoleculeAutorotationOperation.h"
+#import "SLSMoleculeAppDelegate.h"
 
 @implementation SLSMoleculeGLViewController
 
@@ -31,7 +31,9 @@
 		[nc addObserver:self selector:@selector(showScanningIndicator:) name:@"FileLoadingStarted" object:nil];
 		[nc addObserver:self selector:@selector(updateScanningIndicator:) name:@"FileLoadingUpdate" object:nil];
 		[nc addObserver:self selector:@selector(hideScanningIndicator:) name:@"FileLoadingEnded" object:nil];
-		
+
+		[nc addObserver:self selector:@selector(updateSizeOfGLView:) name:@"GLViewSizeDidChange" object:nil];
+
 		isAutorotating = NO;
 		
 		// Initialize values for the touch interaction
@@ -44,6 +46,13 @@
 		instantZTranslation = 0.0f;
 		twoFingersAreMoving = NO;
 		pinchGestureUnderway = NO;
+		stepsSinceLastRotation = 0;
+		
+		accumulatedXRotation = 0.0f;
+		accumulatedYRotation = 0.0f;
+		accumulatedScale = 1.0f;
+		accumulatedXTranslation = 0.0f;
+		accumulatedYTranslation = 0.0f;
 
 		// Set up the initial model view matrix for the rendering
 		isFirstDrawingOfMolecule = YES;
@@ -57,44 +66,23 @@
 		
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleFinishOfMoleculeRendering:) name:@"MoleculeRenderingEnded" object:nil];
 		
-		autorotationQueue = [[NSOperationQueue alloc] init];
+		renderingQueue = [[NSOperationQueue alloc] init];
+		[renderingQueue setMaxConcurrentOperationCount:1];
 	}
 	return self;
 }
 
 - (void)dealloc 
 {
-	[rotationButton release];
-	[autorotationQueue release];
+//	[[NSNotificationCenter defaultCenter] removeObserver:self];
+	[renderingQueue release];
 	[super dealloc];
 }
 
-- (void)viewDidLoad 
+- (void)loadView 
 {
 	SLSMoleculeGLView *glView = [[SLSMoleculeGLView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-	
-	UIButton *infoButton = [[UIButton buttonWithType:UIButtonTypeInfoLight] retain];
-	infoButton.frame = CGRectMake(320.0f - 70.0f, 460.0f - 70.0f, 70.0f, 70.0f);
-	[infoButton addTarget:self action:@selector(switchToTableView) forControlEvents:(UIControlEventTouchUpInside | UIControlEventTouchUpOutside)];
-	[glView addSubview:infoButton];
-	[infoButton release];
 
-	rotationButton = [UIButton buttonWithType:UIButtonTypeCustom];
-	
-	UIImage *rotationImage = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"RotationIcon" ofType:@"png"]];
-	[rotationButton setImage:rotationImage forState:UIControlStateNormal];
-	[rotationImage release];
-
-	UIImage *selectedRotationImage = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"RotationIconSelected" ofType:@"png"]];
-	[rotationButton setImage:selectedRotationImage forState:UIControlStateSelected];
-	[selectedRotationImage release];
-	
-	rotationButton.showsTouchWhenHighlighted = YES;
-	[rotationButton addTarget:self action:@selector(startOrStopAutorotation:) forControlEvents:UIControlEventTouchUpInside];
-	rotationButton.frame = CGRectMake(0.0f, 460.0f - 70.0f, 70.0f, 70.0f);
-	rotationButton.clipsToBounds = NO;
-	[glView addSubview:rotationButton];
-	
 	self.view = glView;
 	
 	[glView release];
@@ -106,11 +94,11 @@
 - (void)showScanningIndicator:(NSNotification *)note;
 {
 	scanningActivityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-	scanningActivityIndicator.frame = CGRectMake(142.0f, 212.0f, 37.0f, 37.0f);
+	scanningActivityIndicator.frame = CGRectMake(round(self.view.frame.size.width / 2.0f - 37.0f / 2.0f), round(self.view.frame.size.height / 2.0f + 15.0f), 37.0f, 37.0f);
 	scanningActivityIndicator.hidesWhenStopped = YES;
 	[scanningActivityIndicator startAnimating];
 	
-	renderingActivityLabel = [[UILabel alloc] initWithFrame:CGRectMake(51.0f, 176.0f, 219.0f, 21.0f)];
+	renderingActivityLabel = [[UILabel alloc] initWithFrame:CGRectMake(round(self.view.frame.size.width / 2.0f - 219.0f / 2.0f), round(self.view.frame.size.height / 2.0f - 15.0f - 21.0f), 219.0f, 21.0f)];
 	renderingActivityLabel.font = [UIFont systemFontOfSize:17.0f];
 	renderingActivityLabel.text = [note object];
 	renderingActivityLabel.textAlignment = UITextAlignmentCenter;
@@ -139,10 +127,11 @@
 
 - (void)showRenderingIndicator:(NSNotification *)note;
 {
-	renderingProgressIndicator = [[UIProgressView alloc] initWithFrame:CGRectMake(85.0f, 226.0f, 150.0f, 9.0f)];
+	float renderingIndicatorWidth = round(self.view.frame.size.width * 0.6);
+	renderingProgressIndicator = [[UIProgressView alloc] initWithFrame:CGRectMake(round(self.view.frame.size.width / 2.0f - renderingIndicatorWidth / 2.0f), round(self.view.frame.size.height / 2.0f + 15.0f), renderingIndicatorWidth, 9.0f)];
 	[renderingProgressIndicator setProgress:0.0f];
 	
-	renderingActivityLabel = [[UILabel alloc] initWithFrame:CGRectMake(51.0f, 176.0f, 219.0f, 21.0f)];
+	renderingActivityLabel = [[UILabel alloc] initWithFrame:CGRectMake(round(self.view.frame.size.width / 2.0f - 219.0f / 2.0f), round(self.view.frame.size.height / 2.0f - 15.0f - 21.0f), 219.0f, 21.0f)];
 	renderingActivityLabel.font = [UIFont systemFontOfSize:17.0f];
 	renderingActivityLabel.text = NSLocalizedStringFromTable(@"Rendering...", @"Localized", nil);
 	renderingActivityLabel.textAlignment = UITextAlignmentCenter;
@@ -184,18 +173,32 @@
 {
 	if (isAutorotating)
 	{
-		[autorotationQueue cancelAllOperations];
-		[autorotationQueue waitUntilAllOperationsAreFinished];
-		rotationButton.selected = NO;
+		[autorotationTimer invalidate];
+		
+		[[NSNotificationCenter defaultCenter] postNotificationName:@"ToggleRotationSelected" object:[NSNumber numberWithBool:NO]];
 	}
 	else
 	{
-		rotationButton.selected = YES;
-		SLSMoleculeAutorotationOperation *autorotationOperation = [[SLSMoleculeAutorotationOperation alloc] initWithViewController:self];
-		[autorotationQueue addOperation:autorotationOperation];
-		[autorotationOperation release];
+		autorotationTimer = [NSTimer scheduledTimerWithTimeInterval: (1 / 30.0f ) target: self selector: @selector(handleAutorotationTimer) userInfo: nil repeats: YES];
+		
+		[[NSNotificationCenter defaultCenter] postNotificationName:@"ToggleRotationSelected" object:[NSNumber numberWithBool:YES]];
 	}
 	isAutorotating = !isAutorotating;
+}
+
+- (void)handleAutorotationTimer;
+{
+//	if ([[renderingQueue operations] count] > 0)
+//	{
+//		stepsSinceLastRotation++;
+//	}
+//	else
+//	{
+//		[self drawViewByRotatingAroundX:(1.0 + (float)stepsSinceLastRotation * 1.0) rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];
+	[self drawViewByRotatingAroundX:1.0f rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];
+
+//		stepsSinceLastRotation = 0;
+//	}
 }
 
 #pragma mark -
@@ -283,7 +286,7 @@
 	[self drawViewByRotatingAroundX:0.0f rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];
 }
 
-- (void)drawViewByRotatingAroundX:(float)xRotation rotatingAroundY:(float)yRotation scaling:(float)scaleFactor translationInX:(float)xTranslation translationInY:(float)yTranslation;
+- (void)_drawViewByRotatingAroundX:(float)xRotation rotatingAroundY:(float)yRotation scaling:(float)scaleFactor translationInX:(float)xTranslation translationInY:(float)yTranslation;
 {
 	isFrameRenderingFinished = NO;
 	
@@ -352,6 +355,54 @@
 	isFrameRenderingFinished = YES;
 }
 
+- (void)resizeView;
+{
+	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)self.view;
+	[EAGLContext setCurrentContext:glView.context];
+	[glView destroyFramebuffer];
+	[glView createFramebuffer];
+	[glView configureProjection];
+	[self _drawViewByRotatingAroundX:0.0f rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];	
+}
+
+- (void)drawViewByRotatingAroundX:(float)xRotation rotatingAroundY:(float)yRotation scaling:(float)scaleFactor translationInX:(float)xTranslation translationInY:(float)yTranslation;
+{
+	accumulatedXRotation += xRotation;
+	accumulatedYRotation += yRotation;
+	accumulatedScale *= scaleFactor;
+	accumulatedXTranslation += xTranslation;
+	accumulatedYTranslation += yTranslation;		
+	
+	if ([[renderingQueue operations] count] < 2)
+	{
+		NSMethodSignature * sig = nil;
+		sig = [self methodSignatureForSelector:@selector(_drawViewByRotatingAroundX:rotatingAroundY:scaling:translationInX:translationInY:)];
+		NSInvocation *theInvocation = [NSInvocation invocationWithMethodSignature:sig];
+		[theInvocation setTarget:self];
+		[theInvocation setSelector:@selector(_drawViewByRotatingAroundX:rotatingAroundY:scaling:translationInX:translationInY:)];
+		
+		[theInvocation setArgument:&accumulatedXRotation atIndex:2];
+		[theInvocation setArgument:&accumulatedYRotation atIndex:3];
+		[theInvocation setArgument:&accumulatedScale atIndex:4];
+		[theInvocation setArgument:&accumulatedXTranslation atIndex:5];
+		[theInvocation setArgument:&accumulatedYTranslation atIndex:6];
+		
+		NSInvocationOperation *invocationOperation = [[NSInvocationOperation alloc] initWithInvocation:theInvocation];
+		[renderingQueue addOperation:invocationOperation];
+		[invocationOperation release];
+		
+		accumulatedXRotation = 0.0f;
+		accumulatedYRotation = 0.0f;
+		accumulatedScale = 1.0f;
+		accumulatedXTranslation = 0.0f;
+		accumulatedYTranslation = 0.0f;		
+	}
+	
+//	SLSMoleculeRenderingOperation *autorotationOperation = [[SLSMoleculeRenderingOperation alloc] initWithViewController:self stepsSinceLastRotation:stepsSinceLastRotation];
+//	[renderingQueue addOperation:autorotationOperation];
+//	[autorotationOperation release];	
+}
+
 - (void)runOpenGLBenchmarks;
 {
 	NSLog(NSLocalizedStringFromTable(@"Triangles: %d", @"Localized", nil), moleculeToDisplay.totalNumberOfTriangles);
@@ -362,12 +413,25 @@
 	for (unsigned int testCounter = 0; testCounter < NUMBER_OF_FRAMES_FOR_TESTING; testCounter++)
 	{
 		// Do something		
-		[self drawViewByRotatingAroundX:1.0f rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];
+		[self _drawViewByRotatingAroundX:1.0f rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];
 	}
 	elapsedTime = CFAbsoluteTimeGetCurrent() - startTime;
 	// ElapsedTime contains seconds (or fractions thereof as decimals)
 	NSLog(NSLocalizedStringFromTable(@"Elapsed time: %f", @"Localized", nil), elapsedTime);
 	NSLog(@"Triangles per second: %f", (CGFloat)moleculeToDisplay.totalNumberOfTriangles * (CGFloat)NUMBER_OF_FRAMES_FOR_TESTING / elapsedTime);
+}
+
+- (void)updateSizeOfGLView:(NSNotification *)note;
+{
+	NSMethodSignature * sig = nil;
+	sig = [self methodSignatureForSelector:@selector(resizeView)];
+	NSInvocation *theInvocation = [NSInvocation invocationWithMethodSignature:sig];
+	[theInvocation setTarget:self];
+	[theInvocation setSelector:@selector(resizeView)];
+	
+	NSInvocationOperation *invocationOperation = [[NSInvocationOperation alloc] initWithInvocation:theInvocation];
+	[renderingQueue addOperation:invocationOperation];
+	[invocationOperation release];	
 }
 
 #pragma mark -
@@ -386,6 +450,53 @@
 #else
 	[self startOrStopAutorotation:self];	
 #endif	
+}
+
+- (UIActionSheet *)actionSheetForVisualizationState;
+{
+	NSString *buttonTitle1;
+	NSString *buttonTitle2;
+	NSString *cancelButtonTitle;
+	switch (moleculeToDisplay.currentVisualizationType)
+	{
+		case BALLANDSTICK:
+		{
+			buttonTitle1 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
+			buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
+			cancelButtonTitle = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
+		}; break;
+		case SPACEFILLING:
+		{
+			buttonTitle1 = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
+			buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
+			cancelButtonTitle = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
+		}; break;
+		case CYLINDRICAL:
+		{
+			buttonTitle1 = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
+			buttonTitle2 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
+			cancelButtonTitle = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
+		}; break;
+		default:
+		{
+			buttonTitle1 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
+			buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
+			cancelButtonTitle = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
+		};
+	}
+	
+	NSString *titleForActionSheet = NSLocalizedStringFromTable(@"Visualization mode", @"Localized", nil);
+	if ([SLSMoleculeAppDelegate isRunningOniPad])
+	{
+		titleForActionSheet = nil;
+		cancelButtonTitle = nil;
+	}
+	
+	UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:titleForActionSheet
+																 delegate:self cancelButtonTitle:cancelButtonTitle destructiveButtonTitle:nil
+														otherButtonTitles:buttonTitle1, buttonTitle2, nil];
+	actionSheet.actionSheetStyle = UIActionSheetStyleBlackTranslucent;
+	return [actionSheet autorelease];
 }
 
 #pragma mark -
@@ -555,48 +666,12 @@
 	if (isAutorotating)
 		[self startOrStopAutorotation:nil];
 
-	if ([[touches anyObject] tapCount] >= 2)
+	if (([[touches anyObject] tapCount] >= 2) && (![SLSMoleculeAppDelegate isRunningOniPad]))
 	{
-		NSString *buttonTitle1;
-		NSString *buttonTitle2;
-		NSString *cancelButtonTitle;
-		switch (moleculeToDisplay.currentVisualizationType)
-		{
-			case BALLANDSTICK:
-			{
-				buttonTitle1 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
-				buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
-				cancelButtonTitle = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
-			}; break;
-			case SPACEFILLING:
-			{
-				buttonTitle1 = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
-				buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
-				cancelButtonTitle = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
-			}; break;
-			case CYLINDRICAL:
-			{
-				buttonTitle1 = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
-				buttonTitle2 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
-				cancelButtonTitle = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
-			}; break;
-			default:
-			{
-				buttonTitle1 = NSLocalizedStringFromTable(@"Spacefilling", @"Localized", nil);
-				buttonTitle2 = NSLocalizedStringFromTable(@"Cylinders", @"Localized", nil);
-				cancelButtonTitle = NSLocalizedStringFromTable(@"Ball-and-stick", @"Localized", nil);
-			};
-		}
-		
-		// If the rendering process has not finished, prevent you from changing the visualization mode
 		if (moleculeToDisplay.isDoneRendering == YES)
 		{
-			UIActionSheet *actionSheet = [[UIActionSheet alloc] initWithTitle:NSLocalizedStringFromTable(@"Visualization mode", @"Localized", nil)
-																	 delegate:self cancelButtonTitle:cancelButtonTitle destructiveButtonTitle:nil
-															otherButtonTitles:buttonTitle1, buttonTitle2, nil];
-			actionSheet.actionSheetStyle = UIActionSheetStyleBlackTranslucent;
+			UIActionSheet *actionSheet = [self actionSheetForVisualizationState];
 			[actionSheet showInView:self.view];
-			[actionSheet release];
 		}		
 	}
 	
@@ -665,7 +740,15 @@
 		}; break;
 	}
 	
+	if (isAutorotating)
+	{
+		[self startOrStopAutorotation:self];
+	}
+	
+	[renderingQueue waitUntilAllOperationsAreFinished];
+	
 	moleculeToDisplay.currentVisualizationType = newVisualizationType;
+	visualizationActionSheet = nil;
 }
 
 #pragma mark -
@@ -674,7 +757,8 @@
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation 
 {
 	// Return YES for supported orientations
-	return (interfaceOrientation == UIInterfaceOrientationPortrait);
+//	return (interfaceOrientation == UIInterfaceOrientationPortrait);
+	return YES;
 }
 
 - (void)didReceiveMemoryWarning 
@@ -684,6 +768,7 @@
 #pragma mark -
 #pragma mark Accessors
 
+@synthesize visualizationActionSheet;
 @synthesize moleculeToDisplay;
 @synthesize isFrameRenderingFinished;
 
@@ -694,9 +779,17 @@
 		return;
 	}
 	
+	if (isAutorotating)
+	{
+		[self startOrStopAutorotation:self];
+	}
+	
+	[NSThread sleepForTimeInterval:0.2];
+	
 	moleculeToDisplay.isBeingDisplayed = NO;
 	[moleculeToDisplay release];
 	moleculeToDisplay = [newMolecule retain];
+	moleculeToDisplay.renderingQueue = renderingQueue;
 	moleculeToDisplay.isBeingDisplayed = YES;
 	
 	isFirstDrawingOfMolecule = YES;

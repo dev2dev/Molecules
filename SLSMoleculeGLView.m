@@ -19,20 +19,7 @@
 #define USE_DEPTH_BUFFER 1
 //#define RUN_OPENGL_BENCHMARKS
 
-// A class extension to declare private methods
-@interface SLSMoleculeGLView ()
-
-@property (nonatomic, retain) EAGLContext *context;
-
-- (BOOL) createFramebuffer;
-- (void) destroyFramebuffer;
-
-@end
-
-
 @implementation SLSMoleculeGLView
-
-@synthesize context;
 
 // Override the class method to return the OpenGL layer, as opposed to the normal CALayer
 + (Class) layerClass 
@@ -161,7 +148,9 @@
 {
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrthof(-32768.0f, 32768.0f, -1.5f * 32768.0f, 1.5f * 32768.0f, -10.0f * 32768.0f, 4.0f * 32768.0f);	
+	
+//	glOrthof(-32768.0f, 32768.0f, -1.5f * 32768.0f, 1.5f * 32768.0f, -10.0f * 32768.0f, 4.0f * 32768.0f);
+	glOrthof(-32768.0f, 32768.0f, -((float)backingHeight / (float)backingWidth) * 32768.0f, ((float)backingHeight / (float)backingWidth) * 32768.0f, -10.0f * 32768.0f, 4.0f * 32768.0f);
 }
 
 - (void)presentRenderBuffer;
@@ -223,10 +212,14 @@
 
 - (void)layoutSubviews 
 {
-	[EAGLContext setCurrentContext:context];
-	[self destroyFramebuffer];
-	[self createFramebuffer];
-//	[self drawView];
+	[[NSNotificationCenter defaultCenter] postNotificationName:@"GLViewSizeDidChange" object:nil];
+	
 }
+
+#pragma mark -
+#pragma mark Accessors
+
+@synthesize context;
+
 
 @end

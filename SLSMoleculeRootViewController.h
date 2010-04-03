@@ -16,11 +16,13 @@
 @class SLSMolecule;
 @class SLSMoleculeTableViewController;
 
-@interface SLSMoleculeRootViewController : UIViewController <MoleculeCustomDownloadDelegate>
+@interface SLSMoleculeRootViewController : UIViewController
 {
 	SLSMoleculeGLViewController *glViewController;
+	UIButton *rotationButton;
 	UINavigationController *tableNavigationController;
 	SLSMoleculeTableViewController *tableViewController;
+
 	SLSMolecule *bufferedMolecule, *previousMolecule;
 	NSMutableArray *molecules;
 	
@@ -30,6 +32,8 @@
 }
 
 @property (nonatomic, retain) SLSMoleculeGLViewController *glViewController;
+@property (nonatomic, readonly) UINavigationController *tableNavigationController;
+@property (nonatomic, readonly) SLSMoleculeTableViewController *tableViewController;
 @property (nonatomic, assign) sqlite3 *database;
 @property (nonatomic, retain) NSMutableArray *molecules;
 
@@ -41,6 +45,12 @@
 - (void)selectedMoleculeDidChange:(NSInteger)newMoleculeIndex;
 - (void)cancelMoleculeLoading;
 - (void)updateTableListOfMolecules;
+
+- (void)customURLSelectedForMoleculeDownload:(NSNotification *)note;
+
+// Manage the switching of rotation state
+- (void)toggleRotationButton:(NSNotification *)note;
+
 
 @end
 

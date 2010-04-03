@@ -20,14 +20,18 @@
 	UIActivityIndicatorView *scanningActivityIndicator;
 	UIProgressView *renderingProgressIndicator;
 	UILabel *renderingActivityLabel;
-	UIButton *rotationButton;
+	UIActionSheet *visualizationActionSheet;
 
 	SLSMolecule *moleculeToDisplay;
 	CATransform3D currentCalculatedMatrix;
 	BOOL isAutorotating;
 	BOOL isFirstDrawingOfMolecule, isFrameRenderingFinished;
-	NSOperationQueue *autorotationQueue;
+	NSOperationQueue *renderingQueue;
 
+	NSTimer *autorotationTimer;
+	NSUInteger stepsSinceLastRotation;
+	float accumulatedXRotation, accumulatedYRotation, accumulatedScale, accumulatedXTranslation, accumulatedYTranslation;
+	
 	// Touch-handling 
 	float startingTouchDistance, previousScale;
 	float instantObjectScale, instantXRotation, instantYRotation, instantXTranslation, instantYTranslation, instantZTranslation;
@@ -35,6 +39,7 @@
 	BOOL twoFingersAreMoving, pinchGestureUnderway;
 }
 
+@property (readwrite, retain) UIActionSheet *visualizationActionSheet;
 @property (readwrite, retain) SLSMolecule *moleculeToDisplay;
 @property (readonly) BOOL isFrameRenderingFinished;
 
@@ -48,6 +53,7 @@
 
 // Autorotation of molecule
 - (void)startOrStopAutorotation:(id)sender;
+- (void)handleAutorotationTimer;
 
 // OpenGL matrix helper methods
 - (void)convertMatrix:(GLfloat *)matrix to3DTransform:(CATransform3D *)transform3D;
@@ -55,15 +61,17 @@
 - (void)print3DTransform:(CATransform3D *)transform3D;
 - (void)printMatrix:(GLfloat *)fixedPointMatrix;
 
-
 // OpenGL molecule rendering
 - (void)drawView;
+- (void)_drawViewByRotatingAroundX:(float)xRotation rotatingAroundY:(float)yRotation scaling:(float)scaleFactor translationInX:(float)xTranslation translationInY:(float)yTranslation;
 - (void)drawViewByRotatingAroundX:(float)xRotation rotatingAroundY:(float)yRotation scaling:(float)scaleFactor translationInX:(float)xTranslation translationInY:(float)yTranslation;
+- (void)resizeView;
 - (void)runOpenGLBenchmarks;
+- (void)updateSizeOfGLView:(NSNotification *)note;
 
 // Manage molecule rendering state
 - (void)handleFinishOfMoleculeRendering:(NSNotification *)note;
-
+- (UIActionSheet *)actionSheetForVisualizationState;
 
 // Touch handling
 - (float)distanceBetweenTouches:(NSSet *)touches;

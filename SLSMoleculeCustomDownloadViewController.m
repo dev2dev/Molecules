@@ -6,9 +6,11 @@
 //
 //  Created by Brad Larson on 11/10/2008.
 
-#import "SLSMoleculeCustomDownloadViewController.h"
-#import "SLSMolecule.h"
 #import <QuartzCore/QuartzCore.h>
+#import "SLSMoleculeCustomDownloadViewController.h"
+
+#import "SLSMolecule.h"
+#import "SLSMoleculeAppDelegate.h"
 
 @implementation SLSMoleculeCustomDownloadViewController
 
@@ -20,37 +22,7 @@
     if (self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil]) 
 	{
 		self.title = NSLocalizedStringFromTable(@"Custom Location", @"Localized", @"");		
-		self.navigationItem.rightBarButtonItem = nil;
-		
-		UIView *mainView = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-		mainView.backgroundColor = [UIColor groupTableViewBackgroundColor];
-		mainView.autoresizesSubviews = YES;
-		self.view = mainView;
-		
-		UILabel *descriptionLabel = [[UILabel alloc] initWithFrame:CGRectMake(20.0f, 20.0f, mainView.bounds.size.width - 40.0f, 60.0f)];
-		descriptionLabel.text = NSLocalizedStringFromTable(@"Type or paste in the location of the custom molecule and press Go to begin the download.", @"Localized", @"");
-		descriptionLabel.numberOfLines = 3;
-		descriptionLabel.backgroundColor = [UIColor clearColor];
-		[mainView addSubview:descriptionLabel];
-		[descriptionLabel release];
-		
-		urlInput = [[UITextField alloc] initWithFrame:CGRectMake(20.0f, 100.0f, mainView.bounds.size.width - 40.0f, 30.0f)];
-		urlInput.placeholder = NSLocalizedStringFromTable(@"Molecule location", @"Localized", nil);
-		urlInput.delegate = self;
-		urlInput.adjustsFontSizeToFitWidth = YES;
-//		urlInput.font = [UIFont systemFontOfSize:14];
-		urlInput.borderStyle = UITextBorderStyleRoundedRect;
-		urlInput.keyboardType = UIKeyboardTypeURL;
-		urlInput.autocorrectionType = UITextAutocorrectionTypeNo;
-		urlInput.autocapitalizationType = UITextAutocapitalizationTypeNone;
-		urlInput.returnKeyType = UIReturnKeyGo;
-		urlInput.enablesReturnKeyAutomatically = YES;
-		
-		[mainView addSubview:urlInput];
-		[urlInput becomeFirstResponder];
-		
-		[mainView release];
-
+		self.navigationItem.rightBarButtonItem = nil;		
     }
     return self;
 }
@@ -62,11 +34,55 @@
 }
 
 
-/*
 // Implement loadView to create a view hierarchy programmatically.
-- (void)loadView {
+- (void)loadView 
+{
+//	UIView *mainView = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+	UIView *mainView = [[UIView alloc] initWithFrame:CGRectMake(0.0f, 0.0f, 320.0f, 240.0f)];
+	mainView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	
+	if ([SLSMoleculeAppDelegate isRunningOniPad])
+	{
+		mainView.backgroundColor = [UIColor whiteColor];
+		self.contentSizeForViewInPopover = CGSizeMake(320.0f, 100.0f);
+	}
+	else
+	{
+		mainView.backgroundColor = [UIColor groupTableViewBackgroundColor];
+
+	}
+	mainView.autoresizesSubviews = YES;
+	self.view = mainView;
+	
+	UILabel *descriptionLabel = [[UILabel alloc] initWithFrame:CGRectMake(20.0f, 20.0f, mainView.bounds.size.width - 40.0f, 60.0f)];
+	descriptionLabel.text = NSLocalizedStringFromTable(@"Type or paste in the location of the custom molecule and press Go to begin the download.", @"Localized", @"");
+	descriptionLabel.numberOfLines = 3;
+	if ([SLSMoleculeAppDelegate isRunningOniPad])
+		descriptionLabel.backgroundColor = [UIColor whiteColor];
+	else
+		descriptionLabel.backgroundColor = [UIColor clearColor];
+	[mainView addSubview:descriptionLabel];
+	[descriptionLabel release];
+	
+	urlInput = [[UITextField alloc] initWithFrame:CGRectMake(20.0f, 100.0f, mainView.bounds.size.width - 40.0f, 30.0f)];
+	urlInput.placeholder = NSLocalizedStringFromTable(@"Molecule location", @"Localized", nil);
+	urlInput.delegate = self;
+	urlInput.adjustsFontSizeToFitWidth = YES;
+	//		urlInput.font = [UIFont systemFontOfSize:14];
+	urlInput.borderStyle = UITextBorderStyleRoundedRect;
+	urlInput.keyboardType = UIKeyboardTypeURL;
+	urlInput.autocorrectionType = UITextAutocorrectionTypeNo;
+	urlInput.autocapitalizationType = UITextAutocapitalizationTypeNone;
+	urlInput.returnKeyType = UIReturnKeyGo;
+	urlInput.enablesReturnKeyAutomatically = YES;
+	
+	[mainView addSubview:urlInput];
+	[urlInput becomeFirstResponder];
+	
+	[mainView release];
+	
+	
 }
-*/
 
 /*
 // Implement viewDidLoad to do additional setup after loading the view.
@@ -76,9 +92,11 @@
 */
 
 
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation 
+{
+	return YES;
     // Return YES for supported orientations
-    return (interfaceOrientation == UIInterfaceOrientationPortrait);
+//    return (interfaceOrientation == UIInterfaceOrientationPortrait);
 }
 
 
@@ -116,7 +134,7 @@
 	NSURL *url = [request URL];
 	if ([SLSMolecule isFiletypeSupportedForFile:[url path]])
 	{
-		[self.delegate customURLSelectedForMoleculeDownload:url];
+//		[self.delegate customURLSelectedForMoleculeDownload:url];
 		return NO;
 	}
 	return YES;
@@ -138,7 +156,12 @@
 	if ([SLSMolecule isFiletypeSupportedForFile:urlInput.text])
 	{
 		[urlInput resignFirstResponder];
-		[self.delegate customURLSelectedForMoleculeDownload:[NSURL URLWithString:urlString]];
+		[[NSNotificationCenter defaultCenter] postNotificationName:@"CustomURLForMoleculeSelected" object:[NSURL URLWithString:urlString]];
+		
+		if ([SLSMoleculeAppDelegate isRunningOniPad])
+		{
+			[self.navigationController popViewControllerAnimated:YES];
+		}		
 	}
 	else
 	{
@@ -146,7 +169,6 @@
 													   delegate:self cancelButtonTitle:NSLocalizedStringFromTable(@"OK", @"Localized", nil) otherButtonTitles: nil];
 		[alert show];
 		[alert release];
-		
 	}
 	
 	return YES;
@@ -161,11 +183,5 @@
 
 	[super viewWillDisappear:animated];
 }
-
-
-#pragma mark -
-#pragma mark Accessors
-
-@synthesize delegate;
 
 @end

@@ -11,6 +11,7 @@
 #import "SLSMoleculeSearchViewController.h"
 #import "SLSMoleculeDownloadViewController.h"
 #import "VCTitleCase.h"
+#import "SLSMoleculeAppDelegate.h"
 
 #define MAX_SEARCH_RESULT_CODES 25
 
@@ -46,6 +47,12 @@
 		nextResultsRetrievalConnection = nil;
 		searchCancelled = NO;
 		currentPageOfResults = 0;
+		
+		if ([SLSMoleculeAppDelegate isRunningOniPad])
+		{
+			self.contentSizeForViewInPopover = CGSizeMake(320.0, 600.0);
+		}
+		
 	}
 	return self;
 }
@@ -72,7 +79,7 @@
 	[searchResultPDBCodes release];
 	searchResultPDBCodes = nil;
 	
-	NSString *pdbSearchURL = [[NSString alloc] initWithFormat:@"http://www.rcsb.org/pdb/search/navbarsearch.do?newSearch=yes&isAuthorSearch=no&radioset=All&inputQuickSearch=%@&outformat=text&resultsperpage=%d", keyword, MAX_SEARCH_RESULT_CODES];
+	NSString *pdbSearchURL = [[NSString alloc] initWithFormat:@"http://www.rcsb.org/pdb/search/navbarsearch.do?newSearch=yes&isAuthorSearch=no&radioset=All&inputQuickSearch=%@&outformat=text&resultsperpage=%d", [keyword stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding], MAX_SEARCH_RESULT_CODES];
 	
 	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
 	
@@ -315,7 +322,6 @@
 		NSString *selectedPDBCode = [searchResultPDBCodes objectAtIndex:[indexPath row]];
 		
 		SLSMoleculeDownloadViewController *downloadViewController = [[SLSMoleculeDownloadViewController alloc] initWithPDBCode:selectedPDBCode andTitle:selectedTitle];
-		downloadViewController.delegate = self;
 		
 		[self.navigationController pushViewController:downloadViewController animated:YES];
 		[downloadViewController release];	
@@ -334,6 +340,11 @@
 	keywordSearchBar.delegate = self;
 	
 	[super viewWillDisappear:animated];
+}
+
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
+    // Overriden to allow any orientation.
+    return YES;
 }
 
 #pragma mark -
@@ -407,17 +418,8 @@
 }
 
 #pragma mark -
-#pragma mark MoleculeDownloadDelegate protocol method
-
-- (void)moleculeDownloadController:(SLSMoleculeDownloadViewController *)moleculeDownloadViewController didAddMolecule:(NSData *)moleculeData withFilename:(NSString *)filename;
-{
-	[self.delegate moleculeDownloadController:moleculeDownloadViewController didAddMolecule:moleculeData withFilename:filename];
-}
-
-#pragma mark -
 #pragma mark Accessors
 
-@synthesize delegate;
 
 @end
 

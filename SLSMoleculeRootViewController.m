@@ -8,6 +8,7 @@
 //
 //  This controller manages a root view into which the 3D view and the molecule table selection views and animated for the neat flipping effect
 
+#import "SLSMoleculeAppDelegate.h"
 #import "SLSMoleculeRootViewController.h"
 #import "SLSMoleculeTableViewController.h"
 #import "SLSMoleculeGLViewController.h"
@@ -25,20 +26,31 @@
     if (self = [super init]) 
 	{
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(toggleView:) name:@"ToggleView" object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(toggleRotationButton:) name:@"ToggleRotationSelected" object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(customURLSelectedForMoleculeDownload:) name:@"CustomURLForMoleculeSelected" object:nil];
     }
     return self;
 }
 
 - (void)dealloc 
 {
+	[rotationButton release];
+
 	[tableViewController release];
 	[glViewController release];
 	[tableNavigationController release];
 	[super dealloc];
 }
 
-- (void)viewDidLoad 
+- (void)loadView 
 {
+	CGRect mainScreenFrame = [[UIScreen mainScreen] applicationFrame];
+	
+	UIView *backgroundView = [[UIView alloc] initWithFrame:mainScreenFrame];
+	backgroundView.backgroundColor = [UIColor whiteColor];
+		
+	self.view = backgroundView;
+	[backgroundView release];
 	toggleViewDisabled = NO;
 
 	SLSMoleculeGLViewController *viewController = [[SLSMoleculeGLViewController alloc] initWithNibName:nil bundle:nil];
@@ -46,27 +58,28 @@
 	[viewController release];
 	
 	[self.view addSubview:glViewController.view];
-}
-
-- (void)loadTableViewController 
-{	
-	bufferedMolecule = nil;
-    tableNavigationController = [[UINavigationController alloc] init];
-	NSInteger indexOfInitialMolecule = [[NSUserDefaults standardUserDefaults] integerForKey:@"indexOfLastSelectedMolecule"];
-	if (indexOfInitialMolecule >= [molecules count])
-		indexOfInitialMolecule = 0;
-    tableViewController = [[SLSMoleculeTableViewController alloc] initWithStyle:UITableViewStylePlain initialSelectedMoleculeIndex:indexOfInitialMolecule];
-	tableViewController.database = database;
-	tableViewController.molecules = molecules;
-    [tableNavigationController pushViewController:tableViewController animated:NO];
-	tableViewController.delegate = self;
-
-	// Need to correct the view rectangle of the navigation view to correct for the status bar gap
-	UIView *tableView = tableNavigationController.view;
-	CGRect tableFrame = tableView.frame;
-	tableFrame.origin.y -= 20;
-	tableView.frame = tableFrame;
-	toggleViewDisabled = NO;
+	
+	UIButton *infoButton = [[UIButton buttonWithType:UIButtonTypeInfoLight] retain];
+	infoButton.frame = CGRectMake(320.0f - 70.0f, 460.0f - 70.0f, 70.0f, 70.0f);
+	[infoButton addTarget:glViewController action:@selector(switchToTableView) forControlEvents:(UIControlEventTouchUpInside | UIControlEventTouchUpOutside)];
+	[glViewController.view addSubview:infoButton];
+	[infoButton release];
+	
+	rotationButton = [UIButton buttonWithType:UIButtonTypeCustom];
+	
+	UIImage *rotationImage = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"RotationIcon" ofType:@"png"]];
+	[rotationButton setImage:rotationImage forState:UIControlStateNormal];
+	[rotationImage release];
+	
+	UIImage *selectedRotationImage = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"RotationIconSelected" ofType:@"png"]];
+	[rotationButton setImage:selectedRotationImage forState:UIControlStateSelected];
+	[selectedRotationImage release];
+	
+	rotationButton.showsTouchWhenHighlighted = YES;
+	[rotationButton addTarget:glViewController action:@selector(startOrStopAutorotation:) forControlEvents:UIControlEventTouchUpInside];
+	rotationButton.frame = CGRectMake(0.0f, 460.0f - 70.0f, 70.0f, 70.0f);
+	rotationButton.clipsToBounds = NO;
+	[glViewController.view addSubview:rotationButton];
 }
 
 - (void)toggleView:(NSNotification *)note;
@@ -74,12 +87,7 @@
 	if (molecules == nil)
 		return;
 	
-	if (tableNavigationController == nil) 
-	{
-		[self loadTableViewController];
-	}
-	
-	UIView *tableView = tableNavigationController.view;
+	UIView *tableView = self.tableNavigationController.view;
 	SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
 	
 	[UIView beginAnimations:nil context:NULL];
@@ -148,12 +156,19 @@
 }
 
 #pragma mark -
-#pragma mark Passthroughs for managing molecules
+#pragma mark UIViewController methods
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation 
 {
-	// Return YES for supported orientations
-	return (interfaceOrientation == UIInterfaceOrientationPortrait);
+	// Only allow free autorotation on the iPad
+	if ([SLSMoleculeAppDelegate isRunningOniPad])
+	{
+		return YES;
+	}
+	else
+	{
+		return (interfaceOrientation == UIInterfaceOrientationPortrait);
+	}
 }
 
 - (void)didReceiveMemoryWarning 
@@ -175,28 +190,104 @@
 	[tableView reloadData];
 }
 
-#pragma mark -
-#pragma mark MoleculeDownloadDelegate protocol method
 
-- (void)customURLSelectedForMoleculeDownload:(NSURL *)customURLForMoleculeDownload;
+#pragma mark -
+#pragma mark Manage the switching of rotation state
+
+- (void)toggleRotationButton:(NSNotification *)note;
 {
+	if ([[note object] boolValue])
+	{
+		rotationButton.selected = YES;
+	}
+	else
+	{
+		rotationButton.selected = NO;
+	}
+}
+
+- (void)customURLSelectedForMoleculeDownload:(NSNotification *)note;
+{
+	NSURL *customURLForMoleculeDownload = [note object];
+	
 	bufferedMolecule = nil;
-	[[NSNotificationCenter defaultCenter] postNotificationName:@"ToggleView" object:nil];
+	
+	if (![SLSMoleculeAppDelegate isRunningOniPad])
+	{
+		[[NSNotificationCenter defaultCenter] postNotificationName:@"ToggleView" object:nil];
+	}
 	//molecules://www.sunsetlakesoftware.com/sites/default/files/xenonPump.pdb
 	//html://www.sunsetlakesoftware.com/sites/default/files/xenonPump.pdb
 	
 	NSString *pathComponentForCustomURL = [[customURLForMoleculeDownload host] stringByAppendingString:[customURLForMoleculeDownload path]];
 	NSString *customMoleculeHandlingURL = [NSString stringWithFormat:@"molecules://%@", pathComponentForCustomURL];
 
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:customMoleculeHandlingURL]];
+//	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:customMoleculeHandlingURL]];
+	[(SLSMoleculeAppDelegate *)[[UIApplication sharedApplication] delegate] handleCustomURLScheme:[NSURL URLWithString:customMoleculeHandlingURL]];
 }
 
 #pragma mark -
 #pragma mark Accessors
 
+@synthesize tableNavigationController;
+@synthesize tableViewController;
 @synthesize glViewController;
 @synthesize database;
 @synthesize molecules;
+
+- (void)setDatabase:(sqlite3 *)newValue
+{
+	database = newValue;
+	tableViewController.database = database;
+}
+
+- (void)setMolecules:(NSMutableArray *)newValue;
+{
+	if (molecules == newValue)
+		return;
+	
+	[molecules release];
+	molecules = [newValue retain];
+	tableViewController.molecules = molecules;
+	
+	NSInteger indexOfInitialMolecule = [[NSUserDefaults standardUserDefaults] integerForKey:@"indexOfLastSelectedMolecule"];
+	if (indexOfInitialMolecule >= [molecules count])
+		indexOfInitialMolecule = 0;
+	
+	tableViewController.selectedIndex = indexOfInitialMolecule;
+}
+
+- (UINavigationController *)tableNavigationController;
+{
+	if (tableNavigationController == nil)
+	{
+		bufferedMolecule = nil;
+		tableNavigationController = [[UINavigationController alloc] init];
+		if ([SLSMoleculeAppDelegate isRunningOniPad])
+		{
+			tableNavigationController.navigationBar.barStyle = UIBarStyleBlackOpaque;
+		}
+
+		NSInteger indexOfInitialMolecule = [[NSUserDefaults standardUserDefaults] integerForKey:@"indexOfLastSelectedMolecule"];
+		if (indexOfInitialMolecule >= [molecules count])
+			indexOfInitialMolecule = 0;
+		tableViewController = [[SLSMoleculeTableViewController alloc] initWithStyle:UITableViewStylePlain initialSelectedMoleculeIndex:indexOfInitialMolecule];
+		tableViewController.database = database;
+		tableViewController.molecules = molecules;
+		[tableNavigationController pushViewController:tableViewController animated:NO];
+		tableViewController.delegate = self;
+		
+		// Need to correct the view rectangle of the navigation view to correct for the status bar gap
+		UIView *tableView = tableNavigationController.view;
+		CGRect tableFrame = tableView.frame;
+		tableFrame.origin.y -= 20;
+		tableView.frame = tableFrame;
+		toggleViewDisabled = NO;		
+	}
+	
+	return tableNavigationController;
+}
+
 
 
 @end
