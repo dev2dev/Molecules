@@ -13,6 +13,8 @@
 #import "SLSMolecule.h"
 #import "SLSMoleculeAppDelegate.h"
 
+//#define RUN_OPENGL_BENCHMARKS
+
 @implementation SLSMoleculeGLViewController
 
 #pragma mark -
@@ -53,6 +55,16 @@
 		accumulatedScale = 1.0f;
 		accumulatedXTranslation = 0.0f;
 		accumulatedYTranslation = 0.0f;
+		
+		
+		if ([SLSMoleculeAppDelegate isRunningOniPad])
+		{
+			scalingForMovement = 85.0f;
+		}
+		else
+		{
+			scalingForMovement = 200.0f;
+		}
 
 		// Set up the initial model view matrix for the rendering
 		isFirstDrawingOfMolecule = YES;
@@ -81,7 +93,9 @@
 
 - (void)loadView 
 {
-	SLSMoleculeGLView *glView = [[SLSMoleculeGLView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+	CGRect applicationFrame = [[UIScreen mainScreen] applicationFrame];
+	
+	SLSMoleculeGLView *glView = [[SLSMoleculeGLView alloc] initWithFrame:CGRectMake(0.0f, 0.0f, applicationFrame.size.width, applicationFrame.size.height)];
 
 	self.view = glView;
 	
@@ -446,7 +460,9 @@
 	[self convertMatrix:currentModelViewMatrix to3DTransform:&currentCalculatedMatrix];
 	
 #ifdef RUN_OPENGL_BENCHMARKS
-	[self performSelector:@selector(runOpenGLBenchmarks) withObject:nil afterDelay:0.5];
+	NSInvocationOperation *invocationOperation = [[NSInvocationOperation alloc] initWithTarget:self selector:@selector(runOpenGLBenchmarks) object:nil];
+	[renderingQueue addOperation:invocationOperation];
+	[invocationOperation release];
 #else
 	[self startOrStopAutorotation:self];	
 #endif	
@@ -568,8 +584,8 @@
 		return CGPointZero;
 	
 	// The movement ranges are averaged out 
-	commonDirection.x = ((directionOfTouch1.x + directionOfTouch1.x) / 2.0f) * 200.0f;
-	commonDirection.y = ((directionOfTouch1.y + directionOfTouch1.y) / 2.0f) * 200.0f;
+	commonDirection.x = ((directionOfTouch1.x + directionOfTouch1.x) / 2.0f) * scalingForMovement;
+	commonDirection.y = ((directionOfTouch1.y + directionOfTouch1.y) / 2.0f) * scalingForMovement;
 	
 
 	return commonDirection;
@@ -618,6 +634,8 @@
 		{
 			if (pinchGestureUnderway)
 			{
+				
+				
 				if (sqrt(previousDirectionOfPanning.x * previousDirectionOfPanning.x + previousDirectionOfPanning.y * previousDirectionOfPanning.y) > 0.1 )
 				{
 					pinchGestureUnderway = NO;
@@ -663,9 +681,9 @@
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event 
 {
-	if (isAutorotating)
-		[self startOrStopAutorotation:nil];
+	[self handleTouchesEnding:touches withEvent:event];
 
+	// This is placed here to avoid an infinite spawning of alerts under iPhone OS 4.0
 	if (([[touches anyObject] tapCount] >= 2) && (![SLSMoleculeAppDelegate isRunningOniPad]))
 	{
 		if (moleculeToDisplay.isDoneRendering == YES)
@@ -674,6 +692,17 @@
 			[actionSheet showInView:self.view];
 		}		
 	}
+}
+
+- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event 
+{
+	[self handleTouchesEnding:touches withEvent:event];
+}
+
+- (void)handleTouchesEnding:(NSSet *)touches withEvent:(UIEvent *)event
+{
+	if (isAutorotating)
+		[self startOrStopAutorotation:nil];
 	
     NSMutableSet *remainingTouches = [[[event touchesForView:self.view] mutableCopy] autorelease];
     [remainingTouches minusSet:touches];
@@ -684,13 +713,7 @@
 		previousDirectionOfPanning = CGPointZero;
 		
 		lastMovementPosition = [[remainingTouches anyObject] locationInView:self.view];
-	}
-}
-
-- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event 
-{
-	// Handle touches canceled the same as as a touches ended event
-    [self touchesEnded:touches withEvent:event];
+	}	
 }
 
 #pragma mark -

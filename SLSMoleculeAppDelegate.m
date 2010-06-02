@@ -96,6 +96,11 @@
 #pragma mark -
 #pragma mark Device-specific interface control
 
+/*+ (BOOL)isRunningOniPad;
+{
+	return (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad);
+}*/
+
 + (BOOL)isRunningOniPad;
 {
 	static BOOL hasCheckediPadStatus = NO;
@@ -122,21 +127,41 @@
 #pragma mark -
 #pragma mark Database access
 
+- (NSString *)applicationSupportDirectory;
+{	
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
+    NSString *basePath = ([paths count] > 0) ? [paths objectAtIndex:0] : nil;
+	
+	NSFileManager *fileManager = [NSFileManager defaultManager];
+	if ([fileManager fileExistsAtPath:basePath] == NO)
+	{
+		[fileManager createDirectoryAtPath:basePath attributes: nil];
+	}
+	
+    return basePath;
+}
+
 - (BOOL)createEditableCopyOfDatabaseIfNeeded; 
 {
-    // See if the database already exists
-    BOOL success;
+    // First, see if the database exists in the /Documents directory.  If so, move it to Application Support.
     NSFileManager *fileManager = [NSFileManager defaultManager];
     NSError *error;
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *documentsDirectory = [paths objectAtIndex:0];
     NSString *writableDBPath = [documentsDirectory stringByAppendingPathComponent:@"molecules.sql"];
-    success = [fileManager fileExistsAtPath:writableDBPath];
-    if (success) return NO;
+    if ([fileManager fileExistsAtPath:writableDBPath])
+	{
+		[fileManager moveItemAtPath:writableDBPath toPath:[[self applicationSupportDirectory] stringByAppendingPathComponent:@"molecules.sql"] error:&error];
+	}
+	
+	writableDBPath = [[self applicationSupportDirectory] stringByAppendingPathComponent:@"molecules.sql"];
+	
+    if ([fileManager fileExistsAtPath:writableDBPath])
+		return NO;
 	
     // The database does not exist, so copy a blank starter database to the Documents directory
     NSString *defaultDBPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"molecules.sql"];
-    success = [fileManager copyItemAtPath:defaultDBPath toPath:writableDBPath error:&error];
+    BOOL success = [fileManager copyItemAtPath:defaultDBPath toPath:writableDBPath error:&error];
     if (!success) {
 		NSAssert1(0,NSLocalizedStringFromTable(@"Failed to create writable database file with message '%@'.", @"Localized", nil), [error localizedDescription]);
     }
@@ -148,9 +173,7 @@
 	molecules = [[NSMutableArray alloc] init];
 	
 	// The database is stored in the application bundle. 
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    NSString *documentsDirectory = [paths objectAtIndex:0];
-    NSString *path = [documentsDirectory stringByAppendingPathComponent:@"molecules.sql"];
+    NSString *path = [[self applicationSupportDirectory] stringByAppendingPathComponent:@"molecules.sql"];
     // Open the database. The database was prepared outside the application.
     if (sqlite3_open([path UTF8String], &database) == SQLITE_OK) 
 	{
@@ -299,7 +322,17 @@
 	NSString *pname;
 	while (pname = [direnum nextObject])
 	{
-		if ( ([moleculeFilenameLookupTable valueForKey:pname] == nil) && ([[pname pathExtension] isEqualToString:@"gz"]) )
+		NSString *lastPathComponent = [pname lastPathComponent];
+		if (![lastPathComponent isEqualToString:pname])
+		{
+			NSError *error = nil;
+			// The file has been passed in using a subdirectory, so move it into the flattened /Documents directory
+			[[NSFileManager defaultManager]	moveItemAtPath:[documentsDirectory stringByAppendingPathComponent:pname] toPath:[documentsDirectory stringByAppendingPathComponent:lastPathComponent] error:&error];
+			[[NSFileManager defaultManager] removeItemAtPath:[documentsDirectory stringByAppendingPathComponent:[pname stringByDeletingLastPathComponent]] error:&error];
+			pname = lastPathComponent;
+		}
+		
+		if ( ([moleculeFilenameLookupTable valueForKey:pname] == nil) && ([[pname pathExtension] isEqualToString:@"gz"] || [[pname pathExtension] isEqualToString:@"pdb"]) )
 		{
 			// Parse the PDB file into the database
 			SLSMolecule *newMolecule = [[SLSMolecule alloc] initWithFilename:pname database:database];
@@ -365,6 +398,8 @@
 		NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
 		NSString *documentsDirectory = [paths objectAtIndex:0];	
 		
+		[initialDatabaseLoadLock lock];
+
 		if ([[NSFileManager defaultManager] fileExistsAtPath:[documentsDirectory stringByAppendingPathComponent:nameOfDownloadedMolecule]])
 		{
 			
@@ -378,40 +413,49 @@
 				}
 				currentIndex++;
 			}
-			[initialDatabaseLoadLock lock];
 			[rootViewController selectedMoleculeDidChange:indexForMoleculeMatchingThisName];
 			[rootViewController loadInitialMolecule];
-			[initialDatabaseLoadLock unlock];
 			
 			[nameOfDownloadedMolecule release];
 			nameOfDownloadedMolecule = nil;
 			return YES;
 		}
-		
+		[initialDatabaseLoadLock unlock];
+
 		
 		[rootViewController cancelMoleculeLoading];
 		
 		[NSThread sleepForTimeInterval:0.1]; // Wait for cancel action to take place
 		
-		downloadCancelled = NO;
-		
-		// Start download of new molecule
-		[self showDownloadIndicator];
-		
-		
-		[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
-		NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:locationOfRemotePDBFile]
-												  cachePolicy:NSURLRequestUseProtocolCachePolicy
-											  timeoutInterval:60.0f];
-		downloadConnection = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
-		if (downloadConnection) 
+		// Determine if this is a file being passed in, or something to download
+		if ([url isFileURL])
 		{
-			downloadedFileContents = [[NSMutableData data] retain];
-		} 
-		else 
+
+			[nameOfDownloadedMolecule release];
+			nameOfDownloadedMolecule = nil;
+		}
+		else
 		{
-			// inform the user that the download could not be made
-			return NO;
+			downloadCancelled = NO;
+			
+			// Start download of new molecule
+			[self showDownloadIndicator];
+			
+			
+			[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:YES];
+			NSURLRequest *theRequest=[NSURLRequest requestWithURL:[NSURL URLWithString:locationOfRemotePDBFile]
+													  cachePolicy:NSURLRequestUseProtocolCachePolicy
+												  timeoutInterval:60.0f];
+			downloadConnection = [[NSURLConnection alloc] initWithRequest:theRequest delegate:self];
+			if (downloadConnection) 
+			{
+				downloadedFileContents = [[NSMutableData data] retain];
+			} 
+			else 
+			{
+				// inform the user that the download could not be made
+				return NO;
+			}
 		}
 	}	
 	return YES;

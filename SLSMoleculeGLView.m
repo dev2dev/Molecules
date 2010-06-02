@@ -17,7 +17,6 @@
 #import "SLSMolecule.h"
 
 #define USE_DEPTH_BUFFER 1
-//#define RUN_OPENGL_BENCHMARKS
 
 @implementation SLSMoleculeGLView
 
@@ -42,8 +41,11 @@
 		
 		eaglLayer.opaque = YES;
 		eaglLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
-										[NSNumber numberWithBool:FALSE], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat, nil];
+//										[NSNumber numberWithBool:YES], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat, nil];
+										[NSNumber numberWithBool:NO], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGB565, kEAGLDrawablePropertyColorFormat, nil];
 		
+		
+		//kEAGLColorFormatRGB565
 		context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES1];
 		
 		if (!context || ![EAGLContext setCurrentContext:context] || ![self createFramebuffer]) 
@@ -141,7 +143,7 @@
 	
 	glBindFramebufferOES(GL_FRAMEBUFFER_OES, viewFramebuffer);
 	glViewport(0, 0, backingWidth, backingHeight);
-	glScissor(0, 0, backingWidth, backingHeight);	
+//	glScissor(0, 0, backingWidth, backingHeight);	
 }
 
 - (void)configureProjection;

@@ -6,7 +6,7 @@
 //
 //  Created by Brad Larson on 6/30/2008.
 //
-//  A barebones controller for managing the OpenGL view of the molecule.  It's pretty sparse, as some of the methods in the view really belong here.
+//  A controller for managing the OpenGL view of the molecule.
 
 #import <UIKit/UIKit.h>
 #import <OpenGLES/ES1/gl.h>
@@ -31,12 +31,13 @@
 	NSTimer *autorotationTimer;
 	NSUInteger stepsSinceLastRotation;
 	float accumulatedXRotation, accumulatedYRotation, accumulatedScale, accumulatedXTranslation, accumulatedYTranslation;
-	
+
 	// Touch-handling 
 	float startingTouchDistance, previousScale;
 	float instantObjectScale, instantXRotation, instantYRotation, instantXTranslation, instantYTranslation, instantZTranslation;
 	CGPoint lastMovementPosition, previousDirectionOfPanning;
 	BOOL twoFingersAreMoving, pinchGestureUnderway;
+	float scalingForMovement;
 }
 
 @property (readwrite, retain) UIActionSheet *visualizationActionSheet;
@@ -76,6 +77,7 @@
 // Touch handling
 - (float)distanceBetweenTouches:(NSSet *)touches;
 - (CGPoint)commonDirectionOfTouches:(NSSet *)touches;
+- (void)handleTouchesEnding:(NSSet *)touches withEvent:(UIEvent *)event;
 
 // Interface methods
 - (IBAction)switchToTableView;

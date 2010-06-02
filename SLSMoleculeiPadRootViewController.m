@@ -13,6 +13,7 @@
 #import "SLSMoleculeiPadRootViewController.h"
 #import "SLSMoleculeGLViewController.h"
 #import "SLSMoleculeDataSourceViewController.h"
+#import "SLSMoleculeGLView.h"
 
 @implementation SLSMoleculeiPadRootViewController
 
@@ -50,6 +51,11 @@
 	mainToolbar.tintColor = [UIColor blackColor];
 	[backgroundView addSubview:mainToolbar];
 
+	UIImage *screenImage = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"69-display" ofType:@"png"]];	
+	screenBarButton = [[UIBarButtonItem alloc] initWithImage:screenImage style:UIBarButtonItemStylePlain target:self action:@selector(displayOnExternalOrLocalScreen:)];
+	screenBarButton.width = 44.0f;
+	[screenImage release];	
+	
 	UIImage *downloadImage = [[UIImage alloc] initWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"57-download" ofType:@"png"]];	
 	UIBarButtonItem *downloadBarButton = [[UIBarButtonItem alloc] initWithImage:downloadImage style:UIBarButtonItemStylePlain target:self action:@selector(showDownloadOptions:)];
 	downloadBarButton.width = 44.0f;
@@ -66,32 +72,48 @@
 	rotationBarButton = [[UIBarButtonItem alloc] initWithImage:unselectedRotationImage style:UIBarButtonItemStylePlain target:glViewController action:@selector(startOrStopAutorotation:)];
 	rotationBarButton.width = 44.0f;
 	
-	[mainToolbar setItems:[NSArray arrayWithObjects:spacerItem, downloadBarButton, visualizationBarButton, rotationBarButton, nil] animated:NO];
+//	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleConnectionOfMonitor:) name:UIScreenDidConnectNotification object:nil];
+//	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleDisconnectionOfMonitor:) name:UIScreenDidDisconnectNotification object:nil];
+
+	if ([[UIScreen screens] count] > 1)
+	{
+		for (UIScreen *currentScreen in [UIScreen screens])
+		{
+			if (currentScreen != [UIScreen mainScreen])
+				externalScreen = currentScreen;
+		}
+		[mainToolbar setItems:[NSArray arrayWithObjects:spacerItem, screenBarButton, downloadBarButton, visualizationBarButton, rotationBarButton, nil] animated:NO];
+	}
+	else
+	{
+		[mainToolbar setItems:[NSArray arrayWithObjects:spacerItem, downloadBarButton, visualizationBarButton, rotationBarButton, nil] animated:NO];
+	}
+		
 	[downloadBarButton release];
 
 	glViewController.view.frame = CGRectMake(mainScreenFrame.origin.x, mainToolbar.bounds.size.height, mainScreenFrame.size.width, mainScreenFrame.size.height -  mainToolbar.bounds.size.height);
 }
 
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation 
+{
     // Overriden to allow any orientation.
     return YES;
 }
 
-
-- (void)didReceiveMemoryWarning {
+- (void)didReceiveMemoryWarning 
+{
     // Releases the view if it doesn't have a superview.
     [super didReceiveMemoryWarning];
     
     // Release any cached data, images, etc that aren't in use.
 }
 
-
-- (void)viewDidUnload {
+- (void)viewDidUnload 
+{
     [super viewDidUnload];
     // Release any retained subviews of the main view.
     // e.g. self.myOutlet = nil;
 }
-
 
 - (void)dealloc 
 {
@@ -187,6 +209,87 @@
 	else
 	{
 		rotationBarButton.image = unselectedRotationImage;
+	}
+}
+
+#pragma mark -
+#pragma mark External monitor support
+
+- (void)handleConnectionOfMonitor:(NSNotification *)note;
+{
+	externalScreen = [note object];
+	NSMutableArray *items = [[mainToolbar items] mutableCopy];
+    [items insertObject:screenBarButton atIndex:[items indexOfObject:spacerItem] + 1];
+    [mainToolbar setItems:items animated:YES];
+    [items release];
+}
+
+- (void)handleDisconnectionOfMonitor:(NSNotification *)note;
+{
+	NSMutableArray *items = [[mainToolbar items] mutableCopy];
+    [items removeObject:screenBarButton];
+    [mainToolbar setItems:items animated:YES];
+    [items release];	
+	
+	if (externalWindow != nil)
+	{
+		[self.view addSubview:glViewController.view];
+		[glViewController updateSizeOfGLView:nil];
+		[externalWindow release];		
+		externalWindow = nil;
+	}
+	externalScreen = nil;
+}
+
+- (void)displayOnExternalOrLocalScreen:(id)sender;
+{
+	if (externalWindow != nil)
+	{
+		// External window exists, need to move back locally
+		[self.view addSubview:glViewController.view];
+		CGRect mainScreenFrame = [[UIScreen mainScreen] applicationFrame];
+		glViewController.view.frame = CGRectMake(mainScreenFrame.origin.x, mainToolbar.bounds.size.height, mainScreenFrame.size.width, mainScreenFrame.size.height -  mainToolbar.bounds.size.height);
+
+		// Move view back to local window
+		[externalWindow release];
+		externalWindow = nil;
+	}
+	else
+	{
+		// Being displayed locally, move to external window
+		CGRect externalBounds = [externalScreen bounds];
+		externalWindow = [[UIWindow alloc] initWithFrame:externalBounds];
+		
+		
+//		if (glViewController.is
+		
+//		[glViewController.view removeFromSuperview];
+//		glViewController.view = nil;
+//		
+//		glViewController.view = [[SLSMoleculeGLView alloc] initWithFrame:externalBounds];
+
+		
+//		SLSMoleculeGLView *glView = (SLSMoleculeGLView *)glViewController.view;
+//		[EAGLContext setCurrentContext:glView.context];
+//		[glView destroyFramebuffer];
+//		
+//		
+////		glView.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES1];
+		[externalWindow addSubview:glViewController.view];
+//
+//		[EAGLContext setCurrentContext:glView.context];		
+//		[glView createFramebuffer];
+//		[glView configureProjection];
+//		[glViewController _drawViewByRotatingAroundX:0.0f rotatingAroundY:0.0f scaling:1.0f translationInX:0.0f translationInY:0.0f];	
+		
+		UILabel *helloWorld = [[UILabel alloc] initWithFrame:CGRectMake(200.0f, 400.0f, 400.0f, 60.0f)];
+		helloWorld.text = @"This page intentionally left blank.";
+		[externalWindow addSubview:helloWorld];
+		[helloWorld release];
+		
+		externalWindow.screen = externalScreen;
+		glViewController.view.frame = externalBounds;		
+		[externalWindow makeKeyAndVisible];
 	}
 }
 
